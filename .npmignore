@@ -1,0 +1,19 @@
+# Source / tests
+src
+test
+
+# Tooling
+.github
+
+# TS / build configs
+*.ts
+tsconfig.json
+
+# Build script
+build.ts
+
+# Misc
+.DS_Store
+*.log
+coverage
+node_modules

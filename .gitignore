@@ -1,0 +1,15 @@
+node_modules
+.DS_Store
+
+# Build
+/dist
+
+# Logs
+*.log
+
+# Coverage
+coverage
+
+# Misc
+.vscode
+.idea

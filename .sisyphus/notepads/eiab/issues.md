@@ -1,0 +1,3 @@
+- None encountered blocking implementation.
+- LSP occasionally reported diagnostics in temp `.d.ts` files outside workspace; workspace files were clean.
+- No LSP server configured for `.md`; doc changes rely on review + test/build checks.
