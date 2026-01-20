@@ -47,6 +47,45 @@ export default function Layout({ children }) {
 
 The component accepts optional `url` and `userAgent` props to override detection.
 
+#### Conditional Rendering
+
+Show different content based on browser context:
+
+```tsx
+import { EiabSuccess, EiabFailed } from "eiab/react";
+
+export default function Page() {
+  return (
+    <>
+      <EiabSuccess>
+        <p>You're in a normal browser!</p>
+      </EiabSuccess>
+      <EiabFailed>
+        <p>Please open this page in Safari or Chrome.</p>
+      </EiabFailed>
+    </>
+  );
+}
+```
+
+Both components accept an optional `fallback` prop for the SSR/hydration state.
+
+#### Hook
+
+For custom logic, use the `useIsInAppBrowser` hook:
+
+```tsx
+import { useIsInAppBrowser } from "eiab/react";
+
+function MyComponent() {
+  const inApp = useIsInAppBrowser(); // null during SSR, boolean after hydration
+
+  if (inApp === null) return <LoadingSpinner />;
+  if (inApp) return <InAppWarning />;
+  return <NormalContent />;
+}
+```
+
 ### Vue
 
 ```ts
