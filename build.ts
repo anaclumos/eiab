@@ -6,7 +6,7 @@ const tempConfig = {
     outDir: "./dist",
   },
   include: ["src/index.ts", "src/react.tsx"],
-};
+}
 
 await Bun.build({
   entrypoints: ["./src/index.ts", "./src/react.tsx"],
@@ -16,19 +16,19 @@ await Bun.build({
   minify: true,
   sourcemap: "external",
   external: ["react"],
-});
+})
 
-await Bun.write("tsconfig.build.json", JSON.stringify(tempConfig, null, 2));
+await Bun.write("tsconfig.build.json", JSON.stringify(tempConfig, null, 2))
 
 const result = Bun.spawn(["tsc", "-p", "tsconfig.build.json"], {
   stdout: "inherit",
   stderr: "inherit",
-});
+})
 
-const exitCode = await result.exited;
+const exitCode = await result.exited
 
-await Bun.file("tsconfig.build.json").unlink();
+await Bun.file("tsconfig.build.json").unlink()
 
 if (exitCode !== 0) {
-  process.exit(exitCode);
+  process.exit(exitCode)
 }

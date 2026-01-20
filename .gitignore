@@ -13,3 +13,6 @@ coverage
 # Misc
 .vscode
 .idea
+
+playwright-report
+test-results

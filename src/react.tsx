@@ -1,51 +1,62 @@
-"use client";
+"use client"
 
-import { useEffect, useState, type ReactNode } from "react";
-import { attemptEscape, isInAppBrowser } from "./index.js";
+import { type ReactNode, useEffect, useState } from "react"
+import { attemptEscape, isInAppBrowser } from "./index.js"
 
 export interface EscapeInAppBrowserProps {
-  url?: string;
-  userAgent?: string;
+  url?: string
+  userAgent?: string
 }
 
-export function EscapeInAppBrowser({ url, userAgent }: EscapeInAppBrowserProps): null {
+export function EscapeInAppBrowser({
+  url,
+  userAgent,
+}: EscapeInAppBrowserProps): null {
   useEffect(() => {
-    attemptEscape(url, userAgent);
-  }, [url, userAgent]);
+    attemptEscape(url, userAgent)
+  }, [url, userAgent])
 
-  return null;
+  return null
 }
 
 export function useIsInAppBrowser(userAgent?: string): boolean | null {
-  const [inApp, setInApp] = useState<boolean | null>(null);
+  const [inApp, setInApp] = useState<boolean | null>(null)
 
   useEffect(() => {
-    setInApp(isInAppBrowser(userAgent));
-  }, [userAgent]);
+    setInApp(isInAppBrowser(userAgent))
+  }, [userAgent])
 
-  return inApp;
+  return inApp
 }
 
 export interface EiabConditionalProps {
-  children: ReactNode;
-  userAgent?: string;
-  fallback?: ReactNode;
+  children: ReactNode
+  userAgent?: string
+  fallback?: ReactNode
 }
 
-export function EiabSuccess({ children, userAgent, fallback = null }: EiabConditionalProps): ReactNode {
-  const inApp = useIsInAppBrowser(userAgent);
+export function EiabSuccess({
+  children,
+  userAgent,
+  fallback = null,
+}: EiabConditionalProps): ReactNode {
+  const inApp = useIsInAppBrowser(userAgent)
 
-  if (inApp === null) return fallback;
-  if (inApp) return null;
+  if (inApp === null) return fallback
+  if (inApp) return null
 
-  return children;
+  return children
 }
 
-export function EiabFailed({ children, userAgent, fallback = null }: EiabConditionalProps): ReactNode {
-  const inApp = useIsInAppBrowser(userAgent);
+export function EiabFailed({
+  children,
+  userAgent,
+  fallback = null,
+}: EiabConditionalProps): ReactNode {
+  const inApp = useIsInAppBrowser(userAgent)
 
-  if (inApp === null) return fallback;
-  if (!inApp) return null;
+  if (inApp === null) return fallback
+  if (!inApp) return null
 
-  return children;
+  return children
 }
