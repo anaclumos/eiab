@@ -42,8 +42,12 @@ export function EiabSuccess({
 }: EiabConditionalProps): ReactNode {
   const inApp = useIsInAppBrowser(userAgent)
 
-  if (inApp === null) return fallback
-  if (inApp) return null
+  if (inApp === null) {
+    return fallback
+  }
+  if (inApp) {
+    return null
+  }
 
   return children
 }
@@ -55,8 +59,12 @@ export function EiabFailed({
 }: EiabConditionalProps): ReactNode {
   const inApp = useIsInAppBrowser(userAgent)
 
-  if (inApp === null) return fallback
-  if (!inApp) return null
+  if (inApp === null) {
+    return fallback
+  }
+  if (!inApp) {
+    return null
+  }
 
   return children
 }

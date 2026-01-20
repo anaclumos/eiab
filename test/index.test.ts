@@ -25,7 +25,7 @@ const LINE_ANDROID_UA =
 
 describe("isInAppBrowser", () => {
   it("detects a variety of in-app browsers", () => {
-    const samples: Array<[string, string]> = [
+    const samples: [string, string][] = [
       ["KakaoTalk", KAKAOTALK_IOS_UA],
       ["LINE", LINE_ANDROID_UA],
       ["Instagram", IOS_15_UA],

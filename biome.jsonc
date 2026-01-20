@@ -4,6 +4,10 @@
   "javascript": {
     "formatter": {
       "semicolons": "asNeeded"
-    }
+    },
+    "globals": ["Bun"]
+  },
+  "files": {
+    "includes": ["src/**", "test/**", "build.ts"]
   }
 }
