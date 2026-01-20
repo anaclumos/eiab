@@ -1,4 +1,0 @@
-- Implemented browser escape as a pure-function library with optional global fallbacks (`navigator.userAgent`, `location.href`) to support both browser and SSR usage.
-- Used `tsup` for dual ESM+CJS with `.d.ts` generation to keep runtime dependency-free.
-- Kept detection regexes aligned with provided patterns to preserve behavior parity.
-- Simplified iOS escape: always use `x-safari-https://` / `x-safari-http://` (removed iOS 16 Chrome-scheme special casing) while keeping `getIOSVersion()` exported as part of the public API.

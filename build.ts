@@ -1,17 +1,3 @@
-import { build } from "bun";
-import { writeFileSync } from "fs";
-
-// Build the library with Bun
-await build({
-  entrypoints: ["./src/index.ts"],
-  outdir: "./dist",
-  target: "browser",
-  format: "esm",
-  minify: true,
-  sourcemap: "external",
-});
-
-// Generate .d.ts files using tsc with a temporary config
 const tempConfig = {
   extends: "./tsconfig.json",
   compilerOptions: {
@@ -19,21 +5,29 @@ const tempConfig = {
     emitDeclarationOnly: true,
     outDir: "./dist",
   },
-  include: ["src/index.ts"],
+  include: ["src/index.ts", "src/react.tsx"],
 };
 
-writeFileSync("tsconfig.build.json", JSON.stringify(tempConfig, null, 2));
+await Bun.build({
+  entrypoints: ["./src/index.ts", "./src/react.tsx"],
+  outdir: "./dist",
+  target: "browser",
+  format: "esm",
+  minify: true,
+  sourcemap: "external",
+  external: ["react"],
+});
 
-const result = await Bun.spawn(["tsc", "-p", "tsconfig.build.json"], {
+await Bun.write("tsconfig.build.json", JSON.stringify(tempConfig, null, 2));
+
+const result = Bun.spawn(["tsc", "-p", "tsconfig.build.json"], {
   stdout: "inherit",
   stderr: "inherit",
 });
 
 const exitCode = await result.exited;
 
-// Clean up temp config
-import { unlinkSync } from "fs";
-unlinkSync("tsconfig.build.json");
+await Bun.file("tsconfig.build.json").unlink();
 
 if (exitCode !== 0) {
   process.exit(exitCode);

@@ -33,17 +33,19 @@ attemptEscape();
 ### React
 
 ```tsx
-import { useEffect } from "react";
-import { attemptEscape } from "eiab";
+import { EscapeInAppBrowser } from "eiab/react";
 
-export function EscapeOnLoad() {
-  useEffect(() => {
-    attemptEscape();
-  }, []);
-
-  return null;
+export default function Layout({ children }) {
+  return (
+    <>
+      <EscapeInAppBrowser />
+      {children}
+    </>
+  );
 }
 ```
+
+The component accepts optional `url` and `userAgent` props to override detection.
 
 ### Vue
 
