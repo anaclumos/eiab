@@ -12,6 +12,9 @@ tsconfig.json
 # Build script
 build.ts
 
+# Demo
+demo
+
 # Misc
 .DS_Store
 *.log
