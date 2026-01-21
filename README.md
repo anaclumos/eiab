@@ -1,29 +1,17 @@
 # eiab (Escape In-App Browser)
 
-Detect common in-app browsers (Facebook/Instagram/Twitter/etc.) and generate an escape URL that opens the current page in an external browser.
-
-This is useful for flows that often fail inside in-app browsers (e.g. Apple Wallet passes, OAuth/SSO redirects, payment providers, file downloads).
+Detect in-app browsers and generate escape URLs to open the current page in an external browser.
 
 ## Install
 
 ```bash
-bun add eiab
-```
-
-Or with npm/pnpm/yarn:
-
-```bash
 npm install eiab
-pnpm add eiab
-yarn add eiab
 ```
-
-**Note:** This library is **ESM-only**. CommonJS is not supported.
+*Also supports `bun`, `pnpm`, and `yarn`. This library is **ESM-only**.*
 
 ## Quick start
 
 ### Vanilla JS
-
 ```ts
 import { attemptEscape } from "eiab";
 
@@ -31,117 +19,32 @@ attemptEscape();
 ```
 
 ### React
-
 ```tsx
-import { EscapeInAppBrowser } from "eiab/react";
+import { EscapeInAppBrowser, useIsInAppBrowser, EiabSuccess, EiabFailed } from "eiab/react";
 
 export default function Layout({ children }) {
+  const inApp = useIsInAppBrowser(); // null during SSR, boolean after hydration
+
   return (
     <>
       <EscapeInAppBrowser />
+      <EiabSuccess>You're in a normal browser!</EiabSuccess>
+      <EiabFailed>Please open this page in Safari or Chrome.</EiabFailed>
       {children}
     </>
   );
 }
 ```
 
-The component accepts optional `url` and `userAgent` props to override detection.
-
-#### Conditional Rendering
-
-Show different content based on browser context:
-
-```tsx
-import { EiabSuccess, EiabFailed } from "eiab/react";
-
-export default function Page() {
-  return (
-    <>
-      <EiabSuccess>
-        <p>You're in a normal browser!</p>
-      </EiabSuccess>
-      <EiabFailed>
-        <p>Please open this page in Safari or Chrome.</p>
-      </EiabFailed>
-    </>
-  );
-}
-```
-
-Both components accept an optional `fallback` prop for the SSR/hydration state.
-
-#### Hook
-
-For custom logic, use the `useIsInAppBrowser` hook:
-
-```tsx
-import { useIsInAppBrowser } from "eiab/react";
-
-function MyComponent() {
-  const inApp = useIsInAppBrowser(); // null during SSR, boolean after hydration
-
-  if (inApp === null) return <LoadingSpinner />;
-  if (inApp) return <InAppWarning />;
-  return <NormalContent />;
-}
-```
-
-### Vue
-
-```ts
-import { onMounted } from "vue";
-import { attemptEscape } from "eiab";
-
-export function useEscapeOnMounted() {
-  onMounted(() => {
-    attemptEscape();
-  });
-}
-```
-
 ## API
 
-```ts
-export function isInAppBrowser(userAgent?: string): boolean;
-export function getEscapeUrl(currentUrl?: string, userAgent?: string): string | null;
-export function attemptEscape(currentUrl?: string, userAgent?: string): void;
-```
+- `isInAppBrowser(userAgent?: string): boolean` — Returns `true` if the UA matches in-app browser patterns.
+- `getEscapeUrl(currentUrl?, userAgent?): string | null` — Returns a URL/scheme to escape the in-app browser, or `null`.
+- `attemptEscape(currentUrl?, userAgent?): void` — Convenience wrapper that redirects to the escape URL if detected.
 
-### `isInAppBrowser(userAgent?)`
+The `eiab/react` entry point exports `EscapeInAppBrowser`, `useIsInAppBrowser`, `EiabSuccess`, and `EiabFailed`.
 
-Returns `true` when the provided UA (or `navigator.userAgent`) matches common in-app browser patterns.
-
-### `getEscapeUrl(currentUrl?, userAgent?)`
-
-Returns a URL/scheme that should open `currentUrl` in an external browser, or `null` when no escape should be attempted.
-
-### `attemptEscape(currentUrl?, userAgent?)`
-
-Convenience wrapper that calls `getEscapeUrl(...)` and, when a non-null value is returned, assigns it to `window.location.href` (or `location.href`).
-
-## Escape strategies
-
-- KakaoTalk: `kakaotalk://web/openExternal?url=...`
-- LINE: adds `openExternalBrowser=1`
-- Android (generic in-app): Chrome Intent URI
-- iOS (generic in-app): `x-safari-https://...` (and `x-safari-http://...`)
-
-## Why `x-safari-https://`?
-
-Historically, many apps used `googlechrome://` to jump out of an iOS in-app browser, but that requires Chrome to be installed.
-
-iOS supports `x-safari-https://` to open a URL directly in Safari, providing a more reliable escape mechanism that doesn't depend on third-party browsers being installed.
-
-## Browser support matrix (high level)
-
-| Platform | In-app detected | Escape method |
-| --- | --- | --- |
-| iOS (KakaoTalk) | Yes | `kakaotalk://...` |
-| iOS (LINE) | Yes | `?openExternalBrowser=1` |
-| iOS (other in-app) | Yes | `x-safari-https://...` |
-| Android (LINE) | Yes | `?openExternalBrowser=1` |
-| Android (other in-app) | Yes | `intent://...#Intent;package=com.android.chrome;end` |
 
 ## Notes
 
-- `eiab` is intentionally small and dependency-free at runtime.
+- `eiab` is intentionally small and **dependency-free** at runtime.
