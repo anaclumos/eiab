@@ -18,6 +18,13 @@ await Bun.build({
   external: ["react"],
 })
 
+// Prepend "use client" directive to react.js (stripped by bundler)
+const reactPath = "./dist/react.js"
+const reactContent = await Bun.file(reactPath).text()
+if (!reactContent.startsWith('"use client"')) {
+  await Bun.write(reactPath, `"use client";\n${reactContent}`)
+}
+
 await Bun.write("tsconfig.build.json", JSON.stringify(tempConfig, null, 2))
 
 const result = Bun.spawn(["tsc", "-p", "tsconfig.build.json"], {
