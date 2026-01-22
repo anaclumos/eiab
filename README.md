@@ -2,6 +2,24 @@
 
 Detect in-app browsers and generate escape URLs to open the current page in an external browser.
 
+## Supported Apps
+
+| App | iOS | Android |
+|-----|-----|---------|
+| Facebook | ✅ | ✅ |
+| Google Search App | ✅ | - |
+| Instagram | ✅ | ✅ |
+| LINE | ✅ | ✅ |
+| LinkedIn | ✅ | - |
+| Messenger | ✅ | ✅ |
+| Snapchat | ✅ | - |
+| Threads | ✅ | ✅ |
+| TikTok | ✅ | ✅ |
+| Twitter/X | ✅ | - |
+| WeChat | ✅ | ✅ |
+| WhatsApp | ✅ | ✅ |
+| KakaoTalk | ✅ | ✅ |
+
 ## Install
 
 ```bash

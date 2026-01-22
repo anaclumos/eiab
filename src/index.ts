@@ -1,7 +1,65 @@
+// Apps with custom escape mechanisms (order matters - checked first)
 const KAKAOTALK_REGEX = /(?:iphone|ipad|android).* kakaotalk/i
 const LINE_REGEX = /(?:iphone|ipad|android).* line\//i
-const INAPP_REGEX =
-  /inapp|naver|snapchat|wirtschaftswoche|thunderbird|instagram|everytimeapp|whatsapp|electron|wadiz|aliapp|zumapp|kakaostory|band|twitter|daumapps|daumdevice\/mobile|fb_iab|fb4a|fban|fbios|fbss|trill/i
+
+// Supported apps detection patterns (based on inapp-spy research)
+const INAPP_PATTERNS = [
+  // Generic
+  "inapp",
+
+  // Meta: Facebook
+  "\\bFB[\\w_]+\\/",
+  "\\bFacebook",
+  "fb_iab",
+  "fb4a",
+  "fban",
+  "fbios",
+  "fbss",
+
+  // Meta: Instagram
+  "\\bInstagram",
+
+  // Meta: Threads
+  "\\bBarcelona",
+
+  // Meta: Messenger (covered by FB patterns above)
+
+  // Google
+  "GSA", // Google Search App
+
+  // Social
+  "\\bTwitter",
+  "Snapchat",
+  "LinkedInApp",
+
+  // TikTok
+  "musical_ly",
+  "Bytedance",
+  "trill",
+
+  // Messaging
+  "\\bMicroMessenger\\/", // WeChat
+  "\\b(?:WAiOS|WA4A)\\/", // WhatsApp (new format)
+  "WhatsApp", // WhatsApp (legacy)
+
+  // Korean apps
+  "band",
+  "daumapps",
+  "daumdevice\\/mobile",
+  "kakaostory",
+  "naver",
+  "wadiz",
+  "zumapp",
+
+  // Other
+  "aliapp",
+  "electron",
+  "everytimeapp",
+  "thunderbird",
+  "wirtschaftswoche",
+] as const
+
+const INAPP_REGEX = new RegExp(INAPP_PATTERNS.join("|"), "i")
 const IOS_REGEX = /iP(hone|ad|od)/i
 const ANDROID_REGEX = /Android/i
 
