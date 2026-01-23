@@ -1,8 +1,12 @@
 node_modules
 .DS_Store
 
-# Build
-/dist
+# Build outputs
+dist
+.next
+
+# Turborepo
+.turbo
 
 # Logs
 *.log
@@ -10,9 +14,10 @@ node_modules
 # Coverage
 coverage
 
-# Misc
+# IDE
 .vscode
 .idea
 
+# Test artifacts
 playwright-report
 test-results

@@ -4,8 +4,8 @@ import { type ReactNode, useEffect, useState } from "react"
 import { attemptEscape, isInAppBrowser } from "./index.js"
 
 export interface EscapeInAppBrowserProps {
-  url?: string
-  userAgent?: string
+  url?: string | undefined
+  userAgent?: string | undefined
 }
 
 export function EscapeInAppBrowser({
@@ -31,7 +31,7 @@ export function useIsInAppBrowser(userAgent?: string): boolean | null {
 
 export interface EiabConditionalProps {
   children: ReactNode
-  userAgent?: string
+  userAgent?: string | undefined
   fallback?: ReactNode
 }
 

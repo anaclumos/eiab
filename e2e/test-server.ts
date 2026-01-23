@@ -37,7 +37,7 @@ Bun.serve({
     }
 
     if (url.pathname.startsWith("/dist/")) {
-      const file = Bun.file(`.${url.pathname}`)
+      const file = Bun.file(`./packages/eiab${url.pathname}`)
       if (await file.exists()) {
         return new Response(file, {
           headers: { "Content-Type": "application/javascript" },

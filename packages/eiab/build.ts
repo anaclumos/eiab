@@ -1,3 +1,5 @@
+export {}
+
 const tempConfig = {
   extends: "./tsconfig.json",
   compilerOptions: {

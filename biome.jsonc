@@ -8,6 +8,6 @@
     "globals": ["Bun"]
   },
   "files": {
-    "includes": ["src/**", "test/**", "build.ts"]
+    "includes": ["packages/**", "apps/**", "e2e/**", "*.ts"]
   }
 }
