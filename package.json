@@ -25,5 +25,5 @@
     "apps/*",
     "packages/*"
   ],
-  "packageManager": "bun@1.1.45"
+  "packageManager": "bun@1.3.9"
 }
