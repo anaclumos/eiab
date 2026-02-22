@@ -1,6 +1,6 @@
-import { Analytics } from "@vercel/analytics/react"
 import type { Metadata } from "next"
 import { Geist, Geist_Mono, Inter } from "next/font/google"
+import Script from "next/script"
 import "./globals.css"
 import { EscapeInAppBrowser } from "eiab/react"
 
@@ -33,7 +33,11 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         {children}
-        <Analytics />
+        <Script
+          data-token="e2e39295-face-45be-a80e-94ff15026f81"
+          src="https://cdn.visitors.now/v.js"
+          strategy="afterInteractive"
+        />
         <EscapeInAppBrowser />
       </body>
     </html>
