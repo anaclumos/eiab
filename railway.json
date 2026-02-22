@@ -1,0 +1,10 @@
+{
+  "$schema": "https://railway.com/railway.schema.json",
+  "build": {
+    "builder": "RAILPACK",
+    "buildCommand": "bunx turbo run build --filter=@eiab/demo"
+  },
+  "deploy": {
+    "startCommand": "bun run --filter=@eiab/demo start"
+  }
+}
