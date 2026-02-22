@@ -2,9 +2,9 @@
   "$schema": "https://railway.com/railway.schema.json",
   "build": {
     "builder": "RAILPACK",
-    "buildCommand": "bun install && bunx turbo run build --filter=@eiab/demo"
+    "buildCommand": "bun install && bun run build"
   },
   "deploy": {
-    "startCommand": "bun run --filter=@eiab/demo start"
+    "startCommand": "bun run start"
   }
 }
