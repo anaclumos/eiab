@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test"
-import { cleanup, render, screen, waitFor } from "@testing-library/react"
+import { act, cleanup, render, screen } from "@testing-library/react"
 import {
   EiabFailed,
   EiabSuccess,
@@ -37,23 +37,19 @@ describe("React Components", () => {
 
   describe("useIsInAppBrowser", () => {
     it("returns true for in-app browser UA", async () => {
-      const { getByTestId } = render(
-        <TestHookComponent userAgent={INSTAGRAM_IOS_UA} />
-      )
-
-      await waitFor(() => {
-        expect(getByTestId("result").textContent).toBe("true")
+      await act(() => {
+        render(<TestHookComponent userAgent={INSTAGRAM_IOS_UA} />)
       })
+
+      expect(screen.getByTestId("result").textContent).toBe("true")
     })
 
     it("returns false for normal browser UA", async () => {
-      const { getByTestId } = render(
-        <TestHookComponent userAgent={SAFARI_UA} />
-      )
-
-      await waitFor(() => {
-        expect(getByTestId("result").textContent).toBe("false")
+      await act(() => {
+        render(<TestHookComponent userAgent={SAFARI_UA} />)
       })
+
+      expect(screen.getByTestId("result").textContent).toBe("false")
     })
 
     it("uses navigator.userAgent when not provided", async () => {
@@ -63,93 +59,93 @@ describe("React Components", () => {
         configurable: true,
       })
 
-      const { getByTestId } = render(<TestHookComponent />)
-
-      await waitFor(() => {
-        expect(getByTestId("result").textContent).toBe("true")
+      await act(() => {
+        render(<TestHookComponent />)
       })
+
+      expect(screen.getByTestId("result").textContent).toBe("true")
     })
   })
 
   describe("EiabSuccess", () => {
     it("renders children when NOT in an in-app browser", async () => {
-      render(
-        <EiabSuccess userAgent={SAFARI_UA}>
-          <span data-testid="success">Success content</span>
-        </EiabSuccess>
-      )
-
-      await waitFor(() => {
-        expect(screen.getByTestId("success")).toBeTruthy()
+      await act(() => {
+        render(
+          <EiabSuccess userAgent={SAFARI_UA}>
+            <span data-testid="success">Success content</span>
+          </EiabSuccess>
+        )
       })
+
+      expect(screen.getByTestId("success")).toBeTruthy()
     })
 
     it("renders nothing when IN an in-app browser", async () => {
-      render(
-        <EiabSuccess userAgent={INSTAGRAM_IOS_UA}>
-          <span data-testid="success">Success content</span>
-        </EiabSuccess>
-      )
-
-      await waitFor(() => {
-        expect(screen.queryByTestId("success")).toBeNull()
+      await act(() => {
+        render(
+          <EiabSuccess userAgent={INSTAGRAM_IOS_UA}>
+            <span data-testid="success">Success content</span>
+          </EiabSuccess>
+        )
       })
+
+      expect(screen.queryByTestId("success")).toBeNull()
     })
 
     it("accepts fallback prop", async () => {
-      render(
-        <EiabSuccess
-          fallback={<span data-testid="fallback">Loading</span>}
-          userAgent={SAFARI_UA}
-        >
-          <span data-testid="content">Content</span>
-        </EiabSuccess>
-      )
-
-      await waitFor(() => {
-        expect(screen.getByTestId("content")).toBeTruthy()
+      await act(() => {
+        render(
+          <EiabSuccess
+            fallback={<span data-testid="fallback">Loading</span>}
+            userAgent={SAFARI_UA}
+          >
+            <span data-testid="content">Content</span>
+          </EiabSuccess>
+        )
       })
+
+      expect(screen.getByTestId("content")).toBeTruthy()
     })
   })
 
   describe("EiabFailed", () => {
     it("renders children when IN an in-app browser", async () => {
-      render(
-        <EiabFailed userAgent={INSTAGRAM_IOS_UA}>
-          <span data-testid="failed">Failed content</span>
-        </EiabFailed>
-      )
-
-      await waitFor(() => {
-        expect(screen.getByTestId("failed")).toBeTruthy()
+      await act(() => {
+        render(
+          <EiabFailed userAgent={INSTAGRAM_IOS_UA}>
+            <span data-testid="failed">Failed content</span>
+          </EiabFailed>
+        )
       })
+
+      expect(screen.getByTestId("failed")).toBeTruthy()
     })
 
     it("renders nothing when NOT in an in-app browser", async () => {
-      render(
-        <EiabFailed userAgent={SAFARI_UA}>
-          <span data-testid="failed">Failed content</span>
-        </EiabFailed>
-      )
-
-      await waitFor(() => {
-        expect(screen.queryByTestId("failed")).toBeNull()
+      await act(() => {
+        render(
+          <EiabFailed userAgent={SAFARI_UA}>
+            <span data-testid="failed">Failed content</span>
+          </EiabFailed>
+        )
       })
+
+      expect(screen.queryByTestId("failed")).toBeNull()
     })
 
     it("accepts fallback prop", async () => {
-      render(
-        <EiabFailed
-          fallback={<span data-testid="fallback">Loading</span>}
-          userAgent={INSTAGRAM_IOS_UA}
-        >
-          <span data-testid="content">Content</span>
-        </EiabFailed>
-      )
-
-      await waitFor(() => {
-        expect(screen.getByTestId("content")).toBeTruthy()
+      await act(() => {
+        render(
+          <EiabFailed
+            fallback={<span data-testid="fallback">Loading</span>}
+            userAgent={INSTAGRAM_IOS_UA}
+          >
+            <span data-testid="content">Content</span>
+          </EiabFailed>
+        )
       })
+
+      expect(screen.getByTestId("content")).toBeTruthy()
     })
   })
 

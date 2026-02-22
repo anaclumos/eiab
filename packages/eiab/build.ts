@@ -36,7 +36,11 @@ const result = Bun.spawn(["tsc", "-p", "tsconfig.build.json"], {
 
 const exitCode = await result.exited
 
-await Bun.file("tsconfig.build.json").unlink()
+try {
+  await Bun.file("tsconfig.build.json").unlink()
+} catch {
+  // cleanup is best-effort
+}
 
 if (exitCode !== 0) {
   process.exit(exitCode)
