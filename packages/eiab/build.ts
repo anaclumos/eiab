@@ -17,7 +17,10 @@ await Bun.build({
   format: "esm",
   minify: true,
   sourcemap: "external",
-  external: ["react"],
+  external: ["react", "react/jsx-runtime", "react/jsx-dev-runtime"],
+  define: {
+    "process.env.NODE_ENV": '"production"',
+  },
 })
 
 // Prepend "use client" directive to react.js (stripped by bundler)
