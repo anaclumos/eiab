@@ -1,7 +1,13 @@
 "use client"
 
 import { getEscapeUrl, isInAppBrowser } from "eiab"
-import { EiabFailed, EiabSuccess, useIsInAppBrowser } from "eiab/react"
+import {
+  EiabEscapeDialog,
+  EiabEscapeLink,
+  EiabFailed,
+  EiabSuccess,
+  useIsInAppBrowser,
+} from "eiab/react"
 import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -571,6 +577,72 @@ function EscapeStrategiesDemo() {
   )
 }
 
+function EscapeUIDemo() {
+  const [showDialog, setShowDialog] = useState(false)
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Escape UI Components</CardTitle>
+        <CardDescription>
+          User-gesture-based escape for apps that block automatic redirects
+          (Instagram, Facebook)
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <span className="font-medium text-muted-foreground text-xs">
+            EiabEscapeLink
+          </span>
+          <div className="rounded-md border p-3">
+            <EiabEscapeLink
+              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 font-medium text-primary-foreground text-xs transition-colors hover:bg-primary/80"
+              url="https://example.com"
+              userAgent={SAMPLE_USER_AGENTS.instagram_ios.ua}
+            >
+              Open in Safari
+            </EiabEscapeLink>
+          </div>
+          <pre className="overflow-x-auto rounded-md bg-muted/50 p-3 font-mono text-[10px] leading-relaxed">
+            {`<EiabEscapeLink>
+  Open in Safari
+</EiabEscapeLink>`}
+          </pre>
+        </div>
+
+        <div className="space-y-2">
+          <span className="font-medium text-muted-foreground text-xs">
+            EiabEscapeDialog
+          </span>
+          <div className="rounded-md border p-3">
+            <Button onClick={() => setShowDialog(true)} size="sm">
+              Preview Dialog
+            </Button>
+            {showDialog && (
+              <EiabEscapeDialog
+                onDismiss={() => setShowDialog(false)}
+                url="https://example.com"
+                userAgent={SAMPLE_USER_AGENTS.instagram_ios.ua}
+              />
+            )}
+          </div>
+          <pre className="overflow-x-auto rounded-md bg-muted/50 p-3 font-mono text-[10px] leading-relaxed">
+            {`<EscapeInAppBrowser
+  fallback={<EiabEscapeDialog />}
+/>`}
+          </pre>
+        </div>
+
+        <div className="rounded-md bg-amber-500/10 p-3 text-[10px] text-amber-700 dark:text-amber-400">
+          Meta iOS apps (Instagram v417+, Facebook) block automatic{" "}
+          <code>x-safari-https://</code> redirects. These components use{" "}
+          <code>window.open()</code> from a user tap, which still works.
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
 function QuickStartDemo() {
   return (
     <Card>
@@ -599,12 +671,17 @@ attemptEscape()`}
         <div className="space-y-2">
           <Badge variant="secondary">React / Next.js</Badge>
           <pre className="overflow-x-auto whitespace-pre-wrap rounded-md bg-muted/50 p-3 font-mono text-[11px]">
-            {`import { EscapeInAppBrowser } from "eiab/react"
+            {`import {
+  EscapeInAppBrowser,
+  EiabEscapeDialog,
+} from "eiab/react"
 
 export default function Layout({ children }) {
   return (
     <>
-      <EscapeInAppBrowser />
+      <EscapeInAppBrowser
+        fallback={<EiabEscapeDialog />}
+      />
       {children}
     </>
   )
@@ -640,6 +717,7 @@ export default function Page() {
         <div className="grid gap-6 md:grid-cols-2">
           <DetectionDemo />
           <ReactComponentDemo />
+          <EscapeUIDemo />
           <EscapeStrategiesDemo />
           <QuickStartDemo />
         </div>

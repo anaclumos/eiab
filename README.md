@@ -45,14 +45,18 @@ attemptEscape();
 
 ### React
 ```tsx
-import { EscapeInAppBrowser, useIsInAppBrowser, EiabSuccess, EiabFailed } from "eiab/react";
+import {
+  EscapeInAppBrowser,
+  EiabEscapeDialog,
+  EiabSuccess,
+  EiabFailed,
+} from "eiab/react";
 
 export default function Layout({ children }) {
-  const inApp = useIsInAppBrowser(); // null during SSR, boolean after hydration
-
   return (
     <>
-      <EscapeInAppBrowser />
+      {/* Auto-escapes where possible; shows dialog where it can't */}
+      <EscapeInAppBrowser fallback={<EiabEscapeDialog />} />
       <EiabSuccess>You're in a normal browser!</EiabSuccess>
       <EiabFailed>Please open this page in Safari or Chrome.</EiabFailed>
       {children}
@@ -63,11 +67,20 @@ export default function Layout({ children }) {
 
 ## API
 
-- `isInAppBrowser(userAgent?: string): boolean` — Returns `true` if the UA matches in-app browser patterns.
-- `getEscapeUrl(currentUrl?, userAgent?): string | null` — Returns a URL/scheme to escape the in-app browser, or `null`.
-- `attemptEscape(currentUrl?, userAgent?): void` — Convenience wrapper that redirects to the escape URL if detected.
+### Core (`eiab`)
 
-The `eiab/react` entry point exports `EscapeInAppBrowser`, `useIsInAppBrowser`, `EiabSuccess`, and `EiabFailed`.
+- `isInAppBrowser(userAgent?: string): boolean` -- Returns `true` if the UA matches in-app browser patterns.
+- `getEscapeUrl(currentUrl?, userAgent?): string | null` -- Returns a URL/scheme to escape the in-app browser, or `null`.
+- `attemptEscape(currentUrl?, userAgent?): void` -- Convenience wrapper that redirects to the escape URL if detected.
+
+### React (`eiab/react`)
+
+- **`EscapeInAppBrowser`** -- Attempts automatic escape on mount. Accepts an optional `fallback` prop rendered when automatic escape fails (e.g. Meta iOS apps).
+- **`EiabEscapeDialog`** -- Bottom-sheet dialog with an escape button and dismiss option. Works via user tap (`window.open`), which bypasses Meta's restrictions.
+- **`EiabEscapeLink`** -- Inline tappable link that escapes via `window.open` on click. Renders nothing when not in an in-app browser.
+- **`useIsInAppBrowser(userAgent?)`** -- Returns `null` during SSR, `boolean` after hydration.
+- **`useEscapeUrl(url?, userAgent?)`** -- Returns the escape URL or `null`.
+- **`EiabSuccess`** / **`EiabFailed`** -- Conditional rendering based on in-app detection.
 
 
 ## Escape Strategies

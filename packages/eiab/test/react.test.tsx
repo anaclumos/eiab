@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test"
 import { act, cleanup, render, screen } from "@testing-library/react"
 import {
+  EiabEscapeDialog,
+  EiabEscapeLink,
   EiabFailed,
   EiabSuccess,
   EscapeInAppBrowser,
@@ -150,7 +152,7 @@ describe("React Components", () => {
   })
 
   describe("EscapeInAppBrowser", () => {
-    it("renders null", () => {
+    it("renders null without fallback", () => {
       const { container } = render(
         <EscapeInAppBrowser url="https://example.com" userAgent={SAFARI_UA} />
       )
@@ -167,6 +169,183 @@ describe("React Components", () => {
 
       await new Promise((r) => setTimeout(r, 50))
       expect(mockLocation.href).toBe(originalHref)
+    })
+
+    it("renders fallback when in-app browser detected", async () => {
+      await act(() => {
+        render(
+          <EscapeInAppBrowser
+            fallback={<div data-testid="fallback-ui">Tap to escape</div>}
+            url="https://example.com"
+            userAgent={INSTAGRAM_IOS_UA}
+          />
+        )
+      })
+
+      expect(screen.getByTestId("fallback-ui")).toBeTruthy()
+      expect(screen.getByTestId("fallback-ui").textContent).toBe(
+        "Tap to escape"
+      )
+    })
+
+    it("does not render fallback for normal browsers", async () => {
+      await act(() => {
+        render(
+          <EscapeInAppBrowser
+            fallback={<div data-testid="fallback-ui">Tap to escape</div>}
+            url="https://example.com"
+            userAgent={SAFARI_UA}
+          />
+        )
+      })
+
+      expect(screen.queryByTestId("fallback-ui")).toBeNull()
+    })
+  })
+
+  describe("EiabEscapeLink", () => {
+    it("renders a link when in an in-app browser", async () => {
+      globalThis.location = { href: "https://example.com" } as any
+
+      await act(() => {
+        render(
+          <EiabEscapeLink userAgent={INSTAGRAM_IOS_UA}>
+            Open in Safari
+          </EiabEscapeLink>
+        )
+      })
+
+      const link = screen.getByText("Open in Safari")
+      expect(link).toBeTruthy()
+      expect(link.tagName).toBe("A")
+      expect(link.getAttribute("data-eiab")).toBe("escape-link")
+      expect(link.getAttribute("href")).toBe("x-safari-https://example.com")
+    })
+
+    it("renders nothing for normal browsers", async () => {
+      await act(() => {
+        render(
+          <EiabEscapeLink userAgent={SAFARI_UA}>Open in Safari</EiabEscapeLink>
+        )
+      })
+
+      expect(screen.queryByText("Open in Safari")).toBeNull()
+    })
+
+    it("calls window.open on click", async () => {
+      let openedUrl: string | undefined
+      ;(globalThis as any).window = {
+        ...globalThis.window,
+        open: (u: string) => {
+          openedUrl = u
+          return {}
+        },
+        location: { href: "https://example.com" },
+      }
+      globalThis.location = { href: "https://example.com" } as any
+
+      await act(() => {
+        render(
+          <EiabEscapeLink userAgent={INSTAGRAM_IOS_UA}>Escape</EiabEscapeLink>
+        )
+      })
+
+      const link = screen.getByText("Escape")
+      await act(() => {
+        link.click()
+      })
+
+      expect(openedUrl).toBe("x-safari-https://example.com")
+    })
+  })
+
+  describe("EiabEscapeDialog", () => {
+    it("renders dialog when in an in-app browser", async () => {
+      globalThis.location = { href: "https://example.com" } as any
+
+      await act(() => {
+        render(<EiabEscapeDialog userAgent={INSTAGRAM_IOS_UA} />)
+      })
+
+      expect(document.querySelector('[data-eiab="dialog-title"]')).toBeTruthy()
+      expect(
+        screen.getByText(
+          "For the best experience, open this page in your default browser."
+        )
+      ).toBeTruthy()
+      expect(screen.getByText("Continue anyway")).toBeTruthy()
+    })
+
+    it("renders nothing for normal browsers", async () => {
+      await act(() => {
+        render(<EiabEscapeDialog userAgent={SAFARI_UA} />)
+      })
+
+      expect(document.querySelector('[data-eiab="dialog-backdrop"]')).toBeNull()
+    })
+
+    it("supports custom text", async () => {
+      globalThis.location = { href: "https://example.com" } as any
+
+      await act(() => {
+        render(
+          <EiabEscapeDialog
+            action="Open in Safari"
+            description="Please use Safari."
+            title="Wrong browser"
+            userAgent={INSTAGRAM_IOS_UA}
+          />
+        )
+      })
+
+      expect(screen.getByText("Wrong browser")).toBeTruthy()
+      expect(screen.getByText("Please use Safari.")).toBeTruthy()
+      expect(screen.getByText("Open in Safari")).toBeTruthy()
+    })
+
+    it("dismisses when Continue anyway is clicked", async () => {
+      globalThis.location = { href: "https://example.com" } as any
+      let dismissed = false
+
+      await act(() => {
+        render(
+          <EiabEscapeDialog
+            onDismiss={() => {
+              dismissed = true
+            }}
+            userAgent={INSTAGRAM_IOS_UA}
+          />
+        )
+      })
+
+      expect(
+        document.querySelector('[data-eiab="dialog-backdrop"]')
+      ).toBeTruthy()
+
+      await act(() => {
+        screen.getByText("Continue anyway").click()
+      })
+
+      expect(document.querySelector('[data-eiab="dialog-backdrop"]')).toBeNull()
+      expect(dismissed).toBe(true)
+    })
+
+    it("has data-eiab attributes for styling", async () => {
+      globalThis.location = { href: "https://example.com" } as any
+
+      await act(() => {
+        render(<EiabEscapeDialog userAgent={INSTAGRAM_IOS_UA} />)
+      })
+
+      expect(
+        document.querySelector('[data-eiab="dialog-backdrop"]')
+      ).toBeTruthy()
+      expect(document.querySelector('[data-eiab="dialog"]')).toBeTruthy()
+      expect(document.querySelector('[data-eiab="dialog-title"]')).toBeTruthy()
+      expect(document.querySelector('[data-eiab="dialog-action"]')).toBeTruthy()
+      expect(
+        document.querySelector('[data-eiab="dialog-dismiss"]')
+      ).toBeTruthy()
     })
   })
 })

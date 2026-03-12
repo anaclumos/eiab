@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import { Geist, Geist_Mono, Inter } from "next/font/google"
 import Script from "next/script"
 import "./globals.css"
-import { EscapeInAppBrowser } from "eiab/react"
+import { EiabEscapeDialog, EscapeInAppBrowser } from "eiab/react"
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" })
 
@@ -38,7 +38,7 @@ export default function RootLayout({
           src="https://cdn.visitors.now/v.js"
           strategy="afterInteractive"
         />
-        <EscapeInAppBrowser />
+        <EscapeInAppBrowser fallback={<EiabEscapeDialog />} />
       </body>
     </html>
   )
