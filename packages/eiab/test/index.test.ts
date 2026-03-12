@@ -89,12 +89,31 @@ const WHATSAPP_ANDROID_UA =
 const KAKAOTALK_IOS_UA =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 KAKAOTALK 10.0.0"
 
+// Telegram - iOS
+const TELEGRAM_IOS_UA = "Telegram/31192 CFNetwork/1568.300.101 Darwin/24.2.0"
+
+// Weibo - iOS
+const WEIBO_IOS_UA =
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Weibo (iPhone12,8__weibo__14.0.0__iphone__os17.0)"
+
+// Baidu App - Android
+const BAIDU_ANDROID_UA =
+  "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/130.0.0.0 Mobile Safari/537.36 baiduboxapp/13.58.0.10"
+
 // Generic in-app pattern
 const GENERIC_INAPP_UA =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 inapp"
 
+// Generic iOS WebView (no Safari/ token)
+const GENERIC_IOS_WEBVIEW_UA =
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148"
+
+// Generic Android WebView (wv marker)
+const GENERIC_ANDROID_WEBVIEW_UA =
+  "Mozilla/5.0 (Linux; Android 14; Pixel 8 Build/AP2A.240905.003; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/130.0.6723.83 Mobile Safari/537.36"
+
 describe("isInAppBrowser", () => {
-  it("detects all 13 supported apps", () => {
+  it("detects all supported apps", () => {
     const samples: [string, string][] = [
       ["Facebook iOS", FACEBOOK_IOS_UA],
       ["Facebook Android", FACEBOOK_ANDROID_UA],
@@ -117,12 +136,20 @@ describe("isInAppBrowser", () => {
       ["WhatsApp iOS", WHATSAPP_IOS_UA],
       ["WhatsApp Android", WHATSAPP_ANDROID_UA],
       ["KakaoTalk iOS", KAKAOTALK_IOS_UA],
+      ["Telegram iOS", TELEGRAM_IOS_UA],
+      ["Weibo iOS", WEIBO_IOS_UA],
+      ["Baidu Android", BAIDU_ANDROID_UA],
       ["Generic inapp", GENERIC_INAPP_UA],
     ]
 
-    for (const [, userAgent] of samples) {
+    for (const [_label, userAgent] of samples) {
       expect(isInAppBrowser(userAgent)).toBe(true)
     }
+  })
+
+  it("detects generic WebView patterns", () => {
+    expect(isInAppBrowser(GENERIC_IOS_WEBVIEW_UA)).toBe(true)
+    expect(isInAppBrowser(GENERIC_ANDROID_WEBVIEW_UA)).toBe(true)
   })
 
   it("detects additional in-app patterns", () => {
@@ -150,10 +177,43 @@ describe("isInAppBrowser", () => {
     }
   })
 
+  it("detects Telegram via runtime globals", () => {
+    const originalWindow = globalThis.window
+    ;(globalThis as any).window = { TelegramWebview: {} }
+    expect(isInAppBrowser()).toBe(true)
+    ;(globalThis as any).window = originalWindow
+  })
+
+  it("detects TelegramWebviewProxy (iOS)", () => {
+    const originalWindow = globalThis.window
+    ;(globalThis as any).window = {
+      TelegramWebviewProxy: { postEvent: () => undefined },
+    }
+    expect(isInAppBrowser()).toBe(true)
+    ;(globalThis as any).window = originalWindow
+  })
+
+  it("does not use runtime detection when explicit UA is provided", () => {
+    const originalWindow = globalThis.window
+    ;(globalThis as any).window = { TelegramWebview: {} }
+    // Explicit normal UA should return false even with Telegram runtime present
+    expect(
+      isInAppBrowser(
+        "Mozilla/5.0 (Linux; Android 14; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.6668.100 Mobile Safari/537.36"
+      )
+    ).toBe(false)
+    ;(globalThis as any).window = originalWindow
+  })
+
   it("returns false for normal browsers", () => {
     expect(
       isInAppBrowser(
-        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) Safari"
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+      )
+    ).toBe(false)
+    expect(
+      isInAppBrowser(
+        "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36"
       )
     ).toBe(false)
   })
@@ -182,13 +242,21 @@ describe("getEscapeUrl", () => {
     )
   })
 
-  it("generates Android Chrome intent URLs", () => {
+  it("generates Android intent URLs without forcing Chrome", () => {
     expect(getEscapeUrl(HTTPS_URL, FACEBOOK_ANDROID_UA)).toBe(
-      "intent://example.com/path?foo=1#Intent;scheme=https;package=com.android.chrome;end"
+      `intent://example.com/path?foo=1#Intent;scheme=https;S.browser_fallback_url=${encodeURIComponent(HTTPS_URL)};end`
     )
     expect(getEscapeUrl(HTTPS_URL, INSTAGRAM_ANDROID_UA)).toBe(
-      "intent://example.com/path?foo=1#Intent;scheme=https;package=com.android.chrome;end"
+      `intent://example.com/path?foo=1#Intent;scheme=https;S.browser_fallback_url=${encodeURIComponent(HTTPS_URL)};end`
     )
+  })
+
+  it("includes fallback URL in Android intent", () => {
+    const result = getEscapeUrl(HTTPS_URL, FACEBOOK_ANDROID_UA)
+    expect(result).not.toBeNull()
+    expect(result).toContain("S.browser_fallback_url=")
+    expect(result).toContain(encodeURIComponent(HTTPS_URL))
+    expect(result).not.toContain("package=com.android.chrome")
   })
 
   it("uses x-safari-https for iOS in-app browsers", () => {
@@ -240,7 +308,7 @@ describe("getEscapeUrl", () => {
     expect(
       getEscapeUrl(
         HTTPS_URL,
-        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) Safari"
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
       )
     ).toBeNull()
   })
@@ -274,5 +342,55 @@ describe("attemptEscape", () => {
 
     ;(globalThis as any).window = originalWindow
     globalThis.location = originalLocation
+  })
+
+  it("uses window.open for x-safari URLs when window is available", () => {
+    let openedUrl: string | undefined
+    const originalWindow = globalThis.window
+    ;(globalThis as any).window = {
+      open: (url: string) => {
+        openedUrl = url
+        return {} // truthy = success
+      },
+      location: { href: HTTPS_URL },
+    }
+
+    attemptEscape(HTTPS_URL, INSTAGRAM_IOS_UA)
+    expect(openedUrl).toBe("x-safari-https://example.com/path?foo=1")
+
+    ;(globalThis as any).window = originalWindow
+  })
+
+  it("falls back to location.href when window.open fails for x-safari", () => {
+    const stubLocation = { href: HTTPS_URL }
+    const originalWindow = globalThis.window
+    ;(globalThis as any).window = {
+      open: () => null, // blocked
+      location: stubLocation,
+    }
+
+    attemptEscape(HTTPS_URL, INSTAGRAM_IOS_UA)
+    expect(stubLocation.href).toBe("x-safari-https://example.com/path?foo=1")
+
+    ;(globalThis as any).window = originalWindow
+  })
+
+  it("uses location.href for non-x-safari URLs (Android intent)", () => {
+    const stubLocation = { href: HTTPS_URL }
+    const originalWindow = globalThis.window
+    let openCalled = false
+    ;(globalThis as any).window = {
+      open: () => {
+        openCalled = true
+        return {}
+      },
+      location: stubLocation,
+    }
+
+    attemptEscape(HTTPS_URL, FACEBOOK_ANDROID_UA)
+    expect(openCalled).toBe(false)
+    expect(stubLocation.href).toStartWith("intent://")
+
+    ;(globalThis as any).window = originalWindow
   })
 })

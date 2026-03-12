@@ -6,19 +6,26 @@ Detect in-app browsers and generate escape URLs to open the current page in an e
 
 | App | iOS | Android |
 |-----|-----|---------|
+| Baidu App | - | ✅ |
 | Facebook | ✅ | ✅ |
 | Google Search App | ✅ | - |
 | Instagram | ✅ | ✅ |
+| KakaoTalk | ✅ | ✅ |
 | LINE | ✅ | ✅ |
 | LinkedIn | ✅ | - |
 | Messenger | ✅ | ✅ |
 | Snapchat | ✅ | - |
+| Telegram | ✅ | ✅* |
 | Threads | ✅ | ✅ |
 | TikTok | ✅ | ✅ |
 | Twitter/X | ✅ | - |
 | WeChat | ✅ | ✅ |
+| Weibo | ✅ | ✅ |
 | WhatsApp | ✅ | ✅ |
-| KakaoTalk | ✅ | ✅ |
+
+\*Telegram Android has no UA signal; detected via runtime `window.TelegramWebview` (client-side only).
+
+Also detects generic WebView patterns (iOS WKWebView without Safari token, Android `wv` marker) and 15+ additional in-app browsers (Naver, KakaoStory, Band, Electron, etc.).
 
 ## Install
 
@@ -62,6 +69,15 @@ export default function Layout({ children }) {
 
 The `eiab/react` entry point exports `EscapeInAppBrowser`, `useIsInAppBrowser`, `EiabSuccess`, and `EiabFailed`.
 
+
+## Escape Strategies
+
+| Platform | Method | Notes |
+|----------|--------|-------|
+| iOS | `x-safari-https://` scheme via `window.open` | Opens Safari directly |
+| Android | `intent://...#Intent;scheme=https;end` | Opens the user's default browser |
+| KakaoTalk | `kakaotalk://web/openExternal?url=...` | Native external browser scheme |
+| LINE | `?openExternalBrowser=1` query param | Works on both iOS and Android |
 
 ## Notes
 

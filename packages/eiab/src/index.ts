@@ -2,9 +2,13 @@
 const KAKAOTALK_REGEX = /(?:iphone|ipad|android).* kakaotalk/i
 const LINE_REGEX = /(?:iphone|ipad|android).* line\//i
 
-// Supported apps detection patterns (based on inapp-spy research)
+// Supported apps detection patterns (based on inapp-spy research + community reports)
 const INAPP_PATTERNS = [
-  // Generic
+  // Generic WebView indicators
+  "WebView",
+  "Android.+wv\\)", // Android WebView marker
+
+  // Generic in-app marker
   "inapp",
 
   // Meta: Facebook
@@ -41,6 +45,11 @@ const INAPP_PATTERNS = [
   "\\bMicroMessenger\\/", // WeChat
   "\\b(?:WAiOS|WA4A)\\/", // WhatsApp (new format)
   "WhatsApp", // WhatsApp (legacy)
+  "\\bTelegram\\/", // Telegram (iOS/desktop UA)
+
+  // Chinese apps
+  "\\bWeibo",
+  "baiduboxapp",
 
   // Korean apps
   "band",
@@ -60,6 +69,8 @@ const INAPP_PATTERNS = [
 ] as const
 
 const INAPP_REGEX = new RegExp(INAPP_PATTERNS.join("|"), "i")
+// Generic iOS WebView: has iPhone/iPad/iPod but no "Safari/" token
+const IOS_WEBVIEW_REGEX = /iP(hone|ad|od)(?!.*Safari\/)/i
 const IOS_REGEX = /iP(hone|ad|od)/i
 const ANDROID_REGEX = /Android/i
 
@@ -88,6 +99,23 @@ function getDefaultUrl(): string | undefined {
   }
 
   return undefined
+}
+
+// Telegram Android has no UA signal; detect via runtime globals
+function isTelegramRuntime(): boolean {
+  try {
+    if (typeof window !== "undefined") {
+      return (
+        "TelegramWebview" in window ||
+        "TelegramWebviewProxy" in window ||
+        "TelegramWebviewProxyProto" in window
+      )
+    }
+  } catch (_) {
+    /* empty */
+  }
+
+  return false
 }
 
 function isIOS(userAgent: string): boolean {
@@ -121,7 +149,7 @@ function replaceScheme(url: string, from: string, to: string): string | null {
   return `${to}${url.slice(from.length)}`
 }
 
-function toAndroidChromeIntent(url: string): string | null {
+function toAndroidIntent(url: string): string | null {
   try {
     const parsed = new URL(url)
 
@@ -130,7 +158,7 @@ function toAndroidChromeIntent(url: string): string | null {
     }
 
     const scheme = parsed.protocol.slice(0, -1)
-    return `intent://${parsed.host}${parsed.pathname}${parsed.search}#Intent;scheme=${scheme};package=com.android.chrome;end`
+    return `intent://${parsed.host}${parsed.pathname}${parsed.search}#Intent;scheme=${scheme};S.browser_fallback_url=${encodeURIComponent(url)};end`
   } catch {
     return null
   }
@@ -138,7 +166,22 @@ function toAndroidChromeIntent(url: string): string | null {
 
 export function isInAppBrowser(userAgent?: string): boolean {
   const ua = userAgent ?? getDefaultUserAgent() ?? ""
-  return KAKAOTALK_REGEX.test(ua) || LINE_REGEX.test(ua) || INAPP_REGEX.test(ua)
+
+  if (
+    KAKAOTALK_REGEX.test(ua) ||
+    LINE_REGEX.test(ua) ||
+    INAPP_REGEX.test(ua) ||
+    IOS_WEBVIEW_REGEX.test(ua)
+  ) {
+    return true
+  }
+
+  // Runtime-only detection when no explicit UA was provided (browser context)
+  if (userAgent === undefined && isTelegramRuntime()) {
+    return true
+  }
+
+  return false
 }
 
 export function getEscapeUrl(
@@ -151,7 +194,10 @@ export function getEscapeUrl(
   }
 
   const ua = userAgent ?? getDefaultUserAgent() ?? ""
-  if (!isInAppBrowser(ua)) {
+  if (
+    !isInAppBrowser(ua) &&
+    (userAgent !== undefined || !isTelegramRuntime())
+  ) {
     return null
   }
 
@@ -164,7 +210,7 @@ export function getEscapeUrl(
   }
 
   if (isAndroid(ua)) {
-    return toAndroidChromeIntent(url)
+    return toAndroidIntent(url)
   }
 
   if (isIOS(ua)) {
@@ -184,9 +230,24 @@ export function attemptEscape(currentUrl?: string, userAgent?: string): void {
   }
 
   try {
-    if (typeof window !== "undefined" && window.location) {
-      window.location.href = escapeUrl
-      return
+    if (typeof window !== "undefined") {
+      // x-safari-* URLs: prefer window.open which works in more in-app browsers
+      // (Meta apps broke location.href assignment for x-safari in late 2025)
+      if (
+        (escapeUrl.startsWith("x-safari-https://") ||
+          escapeUrl.startsWith("x-safari-http://")) &&
+        window.open
+      ) {
+        const opened = window.open(escapeUrl, "_blank")
+        if (opened) {
+          return
+        }
+      }
+
+      if (window.location) {
+        window.location.href = escapeUrl
+        return
+      }
     }
   } catch (_) {
     /* empty */

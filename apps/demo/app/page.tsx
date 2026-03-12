@@ -117,6 +117,18 @@ const SAMPLE_USER_AGENTS = {
     label: "KakaoTalk (Android)",
     ua: "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36 KAKAOTALK 10.8.5",
   },
+  telegram_ios: {
+    label: "Telegram (iOS)",
+    ua: "Telegram/31192 CFNetwork/1568.300.101 Darwin/24.2.0",
+  },
+  weibo_ios: {
+    label: "Weibo (iOS)",
+    ua: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Weibo (iPhone12,8__weibo__14.0.0__iphone__os17.0)",
+  },
+  baidu_android: {
+    label: "Baidu App (Android)",
+    ua: "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/130.0.0.0 Mobile Safari/537.36 baiduboxapp/13.58.0.10",
+  },
 } as const
 
 type UAKey = keyof typeof SAMPLE_USER_AGENTS
@@ -513,8 +525,8 @@ function EscapeStrategiesDemo() {
     },
     {
       platform: "Android (Generic)",
-      method: "intent://...#Intent;package=com.android.chrome;end",
-      description: "Chrome Intent URI for reliable escape",
+      method: "intent://...#Intent;scheme=https;S.browser_fallback_url=...;end",
+      description: "Intent URI opens user's default browser with fallback",
     },
     {
       platform: "KakaoTalk",
