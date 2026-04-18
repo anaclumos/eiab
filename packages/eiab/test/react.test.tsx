@@ -232,12 +232,14 @@ describe("React Components", () => {
       expect(screen.queryByText("Open in Safari")).toBeNull()
     })
 
-    it("calls window.open on click", async () => {
-      let openedUrl: string | undefined
+    it("relies on native anchor navigation (no preventDefault, no window.open)", async () => {
+      // Meta iOS WKWebViews drop programmatic window.open/location.href scheme
+      // redirects; native anchor clicks carry user activation most reliably.
+      let openCalled = false
       ;(globalThis as any).window = {
         ...globalThis.window,
-        open: (u: string) => {
-          openedUrl = u
+        open: () => {
+          openCalled = true
           return {}
         },
         location: { href: "https://example.com" },
@@ -250,12 +252,21 @@ describe("React Components", () => {
         )
       })
 
-      const link = screen.getByText("Escape")
+      const link = screen.getByText("Escape") as HTMLAnchorElement
+      expect(link.getAttribute("href")).toBe("x-safari-https://example.com")
+
+      let defaultPrevented = false
+      link.addEventListener("click", (e) => {
+        defaultPrevented = e.defaultPrevented
+        e.preventDefault() // jsdom has no navigation; stop it here
+      })
+
       await act(() => {
         link.click()
       })
 
-      expect(openedUrl).toBe("x-safari-https://example.com")
+      expect(openCalled).toBe(false)
+      expect(defaultPrevented).toBe(false)
     })
   })
 

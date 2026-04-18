@@ -26,6 +26,9 @@ const INAPP_PATTERNS = [
   // Meta: Threads
   "\\bBarcelona",
 
+  // Meta: In-App Browser marker (appears across IG/FB/Messenger/Threads)
+  "IABMV\\/",
+
   // Meta: Messenger (covered by FB patterns above)
 
   // Google
@@ -224,30 +227,19 @@ export function getEscapeUrl(
 }
 
 export function attemptEscape(currentUrl?: string, userAgent?: string): void {
+  // Best-effort automatic escape. Note: on Meta iOS apps (Instagram, Facebook,
+  // Messenger, Threads) the WKWebView silently drops x-safari-* redirects when
+  // there's no user activation. Callers should pair this with a user-tap UI
+  // (e.g. EiabEscapeDialog) for those apps.
   const escapeUrl = getEscapeUrl(currentUrl, userAgent)
   if (!escapeUrl) {
     return
   }
 
   try {
-    if (typeof window !== "undefined") {
-      // x-safari-* URLs: prefer window.open which works in more in-app browsers
-      // (Meta apps broke location.href assignment for x-safari in late 2025)
-      if (
-        (escapeUrl.startsWith("x-safari-https://") ||
-          escapeUrl.startsWith("x-safari-http://")) &&
-        window.open
-      ) {
-        const opened = window.open(escapeUrl, "_blank")
-        if (opened) {
-          return
-        }
-      }
-
-      if (window.location) {
-        window.location.href = escapeUrl
-        return
-      }
+    if (typeof window !== "undefined" && window.location) {
+      window.location.href = escapeUrl
+      return
     }
   } catch (_) {
     /* empty */

@@ -344,32 +344,24 @@ describe("attemptEscape", () => {
     globalThis.location = originalLocation
   })
 
-  it("uses window.open for x-safari URLs when window is available", () => {
-    let openedUrl: string | undefined
-    const originalWindow = globalThis.window
-    ;(globalThis as any).window = {
-      open: (url: string) => {
-        openedUrl = url
-        return {} // truthy = success
-      },
-      location: { href: HTTPS_URL },
-    }
-
-    attemptEscape(HTTPS_URL, INSTAGRAM_IOS_UA)
-    expect(openedUrl).toBe("x-safari-https://example.com/path?foo=1")
-
-    ;(globalThis as any).window = originalWindow
-  })
-
-  it("falls back to location.href when window.open fails for x-safari", () => {
+  it("uses location.href for x-safari URLs (no window.open)", () => {
+    // Rationale: window.open(scheme, "_blank") without user activation is
+    // silently dropped by Meta iOS WKWebView and can return a truthy
+    // WindowProxy that masks failure. Auto-escape uses location.href only;
+    // user-tap escape is handled by EiabEscapeLink/EiabEscapeDialog.
     const stubLocation = { href: HTTPS_URL }
     const originalWindow = globalThis.window
+    let openCalled = false
     ;(globalThis as any).window = {
-      open: () => null, // blocked
+      open: () => {
+        openCalled = true
+        return {}
+      },
       location: stubLocation,
     }
 
     attemptEscape(HTTPS_URL, INSTAGRAM_IOS_UA)
+    expect(openCalled).toBe(false)
     expect(stubLocation.href).toBe("x-safari-https://example.com/path?foo=1")
 
     ;(globalThis as any).window = originalWindow
