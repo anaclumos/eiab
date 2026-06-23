@@ -525,9 +525,15 @@ function ReactComponentDemo() {
 function EscapeStrategiesDemo() {
   const strategies = [
     {
+      platform: "Instagram (iOS)",
+      method: "instagram://extbrowser/?url=...",
+      description:
+        "Instagram's own native external-browser scheme (best-effort; pair with the manual fallback)",
+    },
+    {
       platform: "iOS (Generic)",
       method: "x-safari-https://...",
-      description: "Opens directly in Safari",
+      description: "Opens Safari when the WebView allows it",
     },
     {
       platform: "Android (Generic)",
@@ -634,9 +640,12 @@ function EscapeUIDemo() {
         </div>
 
         <div className="rounded-md bg-amber-500/10 p-3 text-[10px] text-amber-700 dark:text-amber-400">
-          Meta iOS apps (Instagram v417+, Facebook) block automatic{" "}
-          <code>x-safari-https://</code> redirects. These components use{" "}
-          <code>window.open()</code> from a user tap, which still works.
+          Meta iOS apps (Instagram v417+, Facebook) filter{" "}
+          <code>x-safari-https://</code> redirects even on tap. For Instagram,
+          these components emit its native <code>instagram://extbrowser/</code>{" "}
+          scheme as a best-effort escape — but the only guaranteed exit is the
+          manual <code>•••</code> → Open in external browser. Always offer Copy
+          link as a fallback.
         </div>
       </CardContent>
     </Card>

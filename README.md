@@ -87,19 +87,24 @@ export default function Layout({ children }) {
 
 | Platform | Method | Notes |
 |----------|--------|-------|
-| iOS | `x-safari-https://` scheme | Opens Safari when the WebView allows it |
+| Instagram (iOS) | `instagram://extbrowser/?url=...` | Instagram's own native external-browser host (best-effort — see caveat) |
+| iOS (other) | `x-safari-https://` scheme | Opens Safari when the WebView allows it |
 | Android | `intent://...#Intent;scheme=https;end` | Opens the user's default browser |
 | KakaoTalk | `kakaotalk://web/openExternal?url=...` | Native external browser scheme |
 | LINE | `?openExternalBrowser=1` query param | Works on both iOS and Android |
 
+The KakaoTalk/LINE/Instagram rows use each app's **own native "open externally" scheme**, handled by the host app rather than by iOS — the most robust class of escape.
+
 ## Meta iOS caveat
 
-Meta's iOS in-app browsers (Instagram, Facebook, Messenger, Threads) are hardened WKWebViews that drop `x-safari-*` scheme redirects without user activation, and recent versions filter them even on tap. There is no purely-browser-based API to open Safari from these apps.
+Meta's iOS in-app browsers (Instagram, Facebook, Messenger, Threads) are hardened WKWebViews that drop `x-safari-*` scheme redirects without user activation, and IG v417+ filters them even on tap. **There is no purely-browser-based API that reliably opens Safari from these apps.**
+
+For **Instagram** specifically, `eiab` instead emits Instagram's own native deep link, `instagram://extbrowser/?url=...`, which the Instagram app (not the WebView) handles. This is the best-grounded option — it's the same class of native-exit scheme used for KakaoTalk/LINE — but treat it as **best-effort, not guaranteed**: Meta's handler gates to trusted callers and may sanitize the URL back into the in-app browser, and there is no confirmed real-device proof it ejects to Safari on current iOS. Always pair it with the manual fallback below.
 
 What to do:
 
-1. Render `EiabEscapeDialog` (or `EiabEscapeLink`) so there is a real user tap — native anchor navigation has the best chance of escaping.
-2. Offer the dialog's **Copy link** action and instruct the user to paste in Safari. Or show Meta's documented manual path: *Instagram:* tap `•••` → *Open in external browser*. *Facebook:* tap the options menu → *Open in external browser*.
+1. Render `EiabEscapeDialog` (or `EiabEscapeLink`) so the scheme is triggered by a real user tap — native anchor navigation carries the strongest signal.
+2. Offer the dialog's **Copy link** action and Meta's documented manual path, which is the only *guaranteed* exit: *Instagram:* tap `•••` → *Open in external browser*. *Facebook:* tap the options menu → *Open in external browser*.
 
 ## Notes
 

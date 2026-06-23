@@ -1,6 +1,9 @@
 // Apps with custom escape mechanisms (order matters - checked first)
 const KAKAOTALK_REGEX = /(?:iphone|ipad|android).* kakaotalk/i
 const LINE_REGEX = /(?:iphone|ipad|android).* line\//i
+// Instagram exposes a native external-browser deep link host ("extbrowser")
+// that the Instagram app itself handles (outside the WKWebView).
+const INSTAGRAM_REGEX = /\bInstagram/i
 
 // Supported apps detection patterns (based on inapp-spy research + community reports)
 const INAPP_PATTERNS = [
@@ -213,10 +216,25 @@ export function getEscapeUrl(
   }
 
   if (isAndroid(ua)) {
+    // Android's intent:// is the proven, reliable escape for Instagram and the
+    // other Meta apps, so prefer it over the native scheme there.
     return toAndroidIntent(url)
   }
 
   if (isIOS(ua)) {
+    // Instagram registers a native "open in external browser" deep link host
+    // ("instagram://extbrowser?url=...") handled by the Instagram app, not the
+    // WKWebView. The theory is that an app-handled scheme can sidestep the
+    // x-safari-* filtering Meta added in IG v417+, but this is UNVERIFIED on
+    // iOS (no real-device confirmation) and on Android the handler gates to
+    // trusted callers and sanitizes https back into the in-app browser. Treat
+    // it as a best-effort attempt only and always pair it with a user-tap
+    // fallback UI (EiabEscapeDialog / EiabEscapeLink) plus the manual
+    // "•••  → Open in external browser" path, which is the only reliable exit.
+    if (INSTAGRAM_REGEX.test(ua)) {
+      return `instagram://extbrowser/?url=${encodeURIComponent(url)}`
+    }
+
     return (
       replaceScheme(url, "https://", "x-safari-https://") ??
       replaceScheme(url, "http://", "x-safari-http://")

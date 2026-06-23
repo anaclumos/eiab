@@ -259,10 +259,22 @@ describe("getEscapeUrl", () => {
     expect(result).not.toContain("package=com.android.chrome")
   })
 
-  it("uses x-safari-https for iOS in-app browsers", () => {
+  it("uses Instagram's native extbrowser scheme on iOS", () => {
     expect(getEscapeUrl(HTTPS_URL, INSTAGRAM_IOS_UA)).toBe(
-      "x-safari-https://example.com/path?foo=1"
+      `instagram://extbrowser/?url=${encodeURIComponent(HTTPS_URL)}`
     )
+    expect(getEscapeUrl(HTTP_URL, INSTAGRAM_IOS_UA)).toBe(
+      `instagram://extbrowser/?url=${encodeURIComponent(HTTP_URL)}`
+    )
+  })
+
+  it("uses Android intent for Instagram on Android (not the native scheme)", () => {
+    expect(getEscapeUrl(HTTPS_URL, INSTAGRAM_ANDROID_UA)).toBe(
+      `intent://example.com/path?foo=1#Intent;scheme=https;S.browser_fallback_url=${encodeURIComponent(HTTPS_URL)};end`
+    )
+  })
+
+  it("uses x-safari-https for iOS in-app browsers", () => {
     expect(getEscapeUrl(HTTPS_URL, FACEBOOK_IOS_UA)).toBe(
       "x-safari-https://example.com/path?foo=1"
     )
@@ -296,9 +308,6 @@ describe("getEscapeUrl", () => {
   })
 
   it("uses x-safari-http for iOS in-app browsers", () => {
-    expect(getEscapeUrl(HTTP_URL, INSTAGRAM_IOS_UA)).toBe(
-      "x-safari-http://example.com/path?foo=1"
-    )
     expect(getEscapeUrl(HTTP_URL, TWITTER_IOS_UA)).toBe(
       "x-safari-http://example.com/path?foo=1"
     )
@@ -344,7 +353,7 @@ describe("attemptEscape", () => {
     globalThis.location = originalLocation
   })
 
-  it("uses location.href for x-safari URLs (no window.open)", () => {
+  it("uses location.href for scheme URLs (no window.open)", () => {
     // Rationale: window.open(scheme, "_blank") without user activation is
     // silently dropped by Meta iOS WKWebView and can return a truthy
     // WindowProxy that masks failure. Auto-escape uses location.href only;
@@ -362,7 +371,9 @@ describe("attemptEscape", () => {
 
     attemptEscape(HTTPS_URL, INSTAGRAM_IOS_UA)
     expect(openCalled).toBe(false)
-    expect(stubLocation.href).toBe("x-safari-https://example.com/path?foo=1")
+    expect(stubLocation.href).toBe(
+      `instagram://extbrowser/?url=${encodeURIComponent(HTTPS_URL)}`
+    )
 
     ;(globalThis as any).window = originalWindow
   })

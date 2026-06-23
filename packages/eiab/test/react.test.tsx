@@ -219,7 +219,9 @@ describe("React Components", () => {
       expect(link).toBeTruthy()
       expect(link.tagName).toBe("A")
       expect(link.getAttribute("data-eiab")).toBe("escape-link")
-      expect(link.getAttribute("href")).toBe("x-safari-https://example.com")
+      expect(link.getAttribute("href")).toBe(
+        `instagram://extbrowser/?url=${encodeURIComponent("https://example.com")}`
+      )
     })
 
     it("renders nothing for normal browsers", async () => {
@@ -253,7 +255,9 @@ describe("React Components", () => {
       })
 
       const link = screen.getByText("Escape") as HTMLAnchorElement
-      expect(link.getAttribute("href")).toBe("x-safari-https://example.com")
+      expect(link.getAttribute("href")).toBe(
+        `instagram://extbrowser/?url=${encodeURIComponent("https://example.com")}`
+      )
 
       let defaultPrevented = false
       link.addEventListener("click", (e) => {
