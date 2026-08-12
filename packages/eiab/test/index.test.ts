@@ -9,6 +9,10 @@ const HTTP_URL = "http://example.com/path?foo=1"
 const FACEBOOK_IOS_UA =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/22B83 [FBAN/FBIOS;FBAV/488.0.0.68.101;FBBV/658219612;FBDV/iPhone12,8;FBMD/iPhone;FBSN/iOS;FBSV/18.1;FBSS/2;FBID/phone;FBLC/en_US;FBOP/5;FBRV/0;IABMV/1]"
 
+// Facebook - iOS 555+ (issue #2 hang case)
+const FACEBOOK_IOS_555_UA =
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 18_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/22D63 [FBAN/FBIOS;FBAV/555.0.0.36.63;FBBV/700000000;FBDV/iPhone15,2;FBMD/iPhone;FBSN/iOS;FBSV/18.3;FBSS/3;FBID/phone;FBLC/en_US;FBOP/5;FBRV/0;IABMV/1]"
+
 // Facebook - Android
 const FACEBOOK_ANDROID_UA =
   "Mozilla/5.0 (Linux; Android 14; Pixel 8 Build/AP2A.240905.003; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/130.0.6723.83 Mobile Safari/537.36 [FB_IAB/FB4A;FBAV/488.0.0.62.79;IABMV/1;]"
@@ -20,6 +24,10 @@ const GSA_IOS_UA =
 // Instagram - iOS
 const INSTAGRAM_IOS_UA =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/22B83 Instagram 354.0.0.29.90 (iPhone12,8; iOS 18_1; en_US; en; scale=2.00; 750x1334; 654111336; IABMV/1)"
+
+// Instagram - iOS 424 (issue #2 comment UA)
+const INSTAGRAM_IOS_424_UA =
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 26_4_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/23E254 Instagram 424.1.0.31.54 (iPhone18,4; iOS 26_4_1; en_GB; en-GB; scale=3.00; 1260x2736; IABMV/1; 933996394) NW/3 Safari/604.1"
 
 // Instagram - Android
 const INSTAGRAM_ANDROID_UA =
@@ -116,9 +124,11 @@ describe("isInAppBrowser", () => {
   it("detects all supported apps", () => {
     const samples: [string, string][] = [
       ["Facebook iOS", FACEBOOK_IOS_UA],
+      ["Facebook iOS 555", FACEBOOK_IOS_555_UA],
       ["Facebook Android", FACEBOOK_ANDROID_UA],
       ["Google Search App", GSA_IOS_UA],
       ["Instagram iOS", INSTAGRAM_IOS_UA],
+      ["Instagram iOS 424", INSTAGRAM_IOS_424_UA],
       ["Instagram Android", INSTAGRAM_ANDROID_UA],
       ["LINE iOS", LINE_IOS_UA],
       ["LINE Android", LINE_ANDROID_UA],
@@ -268,6 +278,22 @@ describe("getEscapeUrl", () => {
     )
   })
 
+  it("uses Threads' native barcelona extbrowser scheme on iOS", () => {
+    expect(getEscapeUrl(HTTPS_URL, THREADS_IOS_UA)).toBe(
+      `barcelona://extbrowser/?url=${encodeURIComponent(HTTPS_URL)}`
+    )
+    expect(getEscapeUrl(HTTP_URL, THREADS_IOS_UA)).toBe(
+      `barcelona://extbrowser/?url=${encodeURIComponent(HTTP_URL)}`
+    )
+  })
+
+  it("prefers Threads scheme when UA contains both Barcelona and Instagram", () => {
+    const threadsWithIgUa = `${THREADS_IOS_UA} Instagram 424.0.0.0.0`
+    expect(getEscapeUrl(HTTPS_URL, threadsWithIgUa)).toBe(
+      `barcelona://extbrowser/?url=${encodeURIComponent(HTTPS_URL)}`
+    )
+  })
+
   it("uses Android intent for Instagram on Android (not the native scheme)", () => {
     expect(getEscapeUrl(HTTPS_URL, INSTAGRAM_ANDROID_UA)).toBe(
       `intent://example.com/path?foo=1#Intent;scheme=https;S.browser_fallback_url=${encodeURIComponent(HTTPS_URL)};end`
@@ -279,9 +305,6 @@ describe("getEscapeUrl", () => {
       "x-safari-https://example.com/path?foo=1"
     )
     expect(getEscapeUrl(HTTPS_URL, TWITTER_IOS_UA)).toBe(
-      "x-safari-https://example.com/path?foo=1"
-    )
-    expect(getEscapeUrl(HTTPS_URL, THREADS_IOS_UA)).toBe(
       "x-safari-https://example.com/path?foo=1"
     )
     expect(getEscapeUrl(HTTPS_URL, TIKTOK_IOS_UA)).toBe(
@@ -353,27 +376,46 @@ describe("attemptEscape", () => {
     globalThis.location = originalLocation
   })
 
-  it("uses location.href for scheme URLs (no window.open)", () => {
-    // Rationale: window.open(scheme, "_blank") without user activation is
-    // silently dropped by Meta iOS WKWebView and can return a truthy
-    // WindowProxy that masks failure. Auto-escape uses location.href only;
-    // user-tap escape is handled by EiabEscapeLink/EiabEscapeDialog.
+  it("does not auto-navigate on Meta iOS (avoids Facebook hang)", () => {
+    // Facebook iOS 555+ hangs on location.href = x-safari-*; Instagram/
+    // Threads native schemes also require a real user tap. Auto-escape must
+    // no-op so the page stays interactive for EiabEscapeDialog / Copy link.
     const stubLocation = { href: HTTPS_URL }
     const originalWindow = globalThis.window
-    let openCalled = false
     ;(globalThis as any).window = {
-      open: () => {
-        openCalled = true
-        return {}
-      },
       location: stubLocation,
     }
 
+    attemptEscape(HTTPS_URL, FACEBOOK_IOS_UA)
+    expect(stubLocation.href).toBe(HTTPS_URL)
+
+    attemptEscape(HTTPS_URL, FACEBOOK_IOS_555_UA)
+    expect(stubLocation.href).toBe(HTTPS_URL)
+
     attemptEscape(HTTPS_URL, INSTAGRAM_IOS_UA)
-    expect(openCalled).toBe(false)
-    expect(stubLocation.href).toBe(
-      `instagram://extbrowser/?url=${encodeURIComponent(HTTPS_URL)}`
-    )
+    expect(stubLocation.href).toBe(HTTPS_URL)
+
+    attemptEscape(HTTPS_URL, INSTAGRAM_IOS_424_UA)
+    expect(stubLocation.href).toBe(HTTPS_URL)
+
+    attemptEscape(HTTPS_URL, THREADS_IOS_UA)
+    expect(stubLocation.href).toBe(HTTPS_URL)
+
+    attemptEscape(HTTPS_URL, MESSENGER_IOS_UA)
+    expect(stubLocation.href).toBe(HTTPS_URL)
+
+    ;(globalThis as any).window = originalWindow
+  })
+
+  it("still auto-navigates non-Meta iOS via x-safari", () => {
+    const stubLocation = { href: HTTPS_URL }
+    const originalWindow = globalThis.window
+    ;(globalThis as any).window = {
+      location: stubLocation,
+    }
+
+    attemptEscape(HTTPS_URL, TWITTER_IOS_UA)
+    expect(stubLocation.href).toBe("x-safari-https://example.com/path?foo=1")
 
     ;(globalThis as any).window = originalWindow
   })

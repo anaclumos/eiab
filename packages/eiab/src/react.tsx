@@ -7,11 +7,11 @@ import { attemptEscape, getEscapeUrl, isInAppBrowser } from "./index.js"
 // Shared anchor styles / behavior
 // ---------------------------------------------------------------------------
 //
-// Meta iOS WKWebViews (Instagram, Facebook, Messenger, Threads) drop
-// programmatic window.open(x-safari-...) and location.href redirects even
-// inside React click handlers. Native anchor navigation carries the strongest
-// signal of user activation, so these components render plain <a href> and
-// let the browser handle the scheme redirect. No preventDefault, no
+// Meta iOS WKWebViews (Instagram, Facebook, Messenger, Threads) drop — and on
+// Facebook iOS 555+, hang on — programmatic window.open(x-safari-...) and
+// location.href redirects even inside React click handlers. attemptEscape
+// therefore no-ops on Meta iOS; these components render plain <a href> so
+// native anchor navigation carries user activation. No preventDefault, no
 // window.open -- both weaken the click's ability to escape the WebView.
 
 // ---------------------------------------------------------------------------
