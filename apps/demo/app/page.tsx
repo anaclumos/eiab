@@ -99,6 +99,10 @@ const SAMPLE_USER_AGENTS = {
     label: "Twitter/X (iOS)",
     ua: "Mozilla/5.0 (iPhone; CPU iPhone OS 26_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/23D5103d Twitter for iPhone/11.57",
   },
+  twitter_android: {
+    label: "Twitter/X (Android)",
+    ua: "Mozilla/5.0 (Linux; Android 11; V2072A Build/RP1A.200720.012; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/145.0.7632.80 Mobile Safari/537.36 TwitterAndroid",
+  },
   wechat_ios: {
     label: "WeChat (iOS)",
     ua: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.50 NetType/WIFI Language/en",
@@ -598,7 +602,7 @@ function EscapeUIDemo() {
         <CardTitle>Escape UI Components</CardTitle>
         <CardDescription>
           User-gesture-based escape for apps that block automatic redirects
-          (Instagram, Facebook)
+          (Instagram, Facebook, Twitter/X)
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -646,14 +650,16 @@ function EscapeUIDemo() {
         </div>
 
         <div className="rounded-md bg-amber-500/10 p-3 text-[10px] text-amber-700 dark:text-amber-400">
-          Meta iOS apps (Instagram v417+, Facebook 555+) filter{" "}
-          <code>x-safari-https://</code> redirects — Facebook can hang on
-          auto-redirect, so <code>attemptEscape()</code> skips Meta iOS. For
-          Instagram/Threads these components emit native{" "}
-          <code>instagram://</code>/<code>barcelona://extbrowser/</code> schemes
-          as a best-effort escape — but the only guaranteed exit is the manual{" "}
-          <code>•••</code> → Open in external browser. Always offer Copy link as
-          a fallback.
+          Twitter/X iOS drops JS-initiated <code>x-safari-https://</code>{" "}
+          redirects — auto-escape is skipped so these tap UIs can fire the
+          scheme. Meta iOS apps (Instagram v417+, Facebook 555+) also filter{" "}
+          <code>x-safari-https://</code> — Facebook can hang on auto-redirect,
+          so <code>attemptEscape()</code> skips Meta iOS via{" "}
+          <code>needsUserGesture</code>. For Instagram/Threads these components
+          emit native <code>instagram://</code>/
+          <code>barcelona://extbrowser/</code> schemes as a best-effort escape —
+          but the only guaranteed Meta exit is the manual <code>•••</code> →
+          Open in external browser. Always offer Copy link as a fallback.
         </div>
       </CardContent>
     </Card>

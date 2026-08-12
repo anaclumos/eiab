@@ -11,6 +11,8 @@ import {
 
 const INSTAGRAM_IOS_UA =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 15_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Instagram"
+const TWITTER_IOS_UA =
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 26_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/23D5103d Twitter for iPhone/11.57"
 const SAFARI_UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
 
@@ -200,6 +202,26 @@ describe("React Components", () => {
       })
 
       expect(screen.queryByTestId("fallback-ui")).toBeNull()
+    })
+
+    it("keeps the page put and shows fallback for Twitter/X iOS", async () => {
+      const originalHref = "https://example.com/page"
+      const mockLocation = { href: originalHref }
+      ;(globalThis as any).window = { location: mockLocation }
+
+      await act(() => {
+        render(
+          <EscapeInAppBrowser
+            fallback={<div data-testid="fallback-ui">Tap to escape</div>}
+            url={originalHref}
+            userAgent={TWITTER_IOS_UA}
+          />
+        )
+      })
+
+      await new Promise((r) => setTimeout(r, 50))
+      expect(mockLocation.href).toBe(originalHref)
+      expect(screen.getByTestId("fallback-ui")).toBeTruthy()
     })
   })
 

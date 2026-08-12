@@ -1,6 +1,11 @@
 import { describe, expect, it } from "bun:test"
 
-import { attemptEscape, getEscapeUrl, isInAppBrowser } from "../src/index"
+import {
+  attemptEscape,
+  getEscapeUrl,
+  isInAppBrowser,
+  needsUserGesture,
+} from "../src/index"
 
 const HTTPS_URL = "https://example.com/path?foo=1"
 const HTTP_URL = "http://example.com/path?foo=1"
@@ -73,9 +78,13 @@ const TIKTOK_IOS_UA =
 const TIKTOK_ANDROID_UA =
   "Mozilla/5.0 (Linux; Android 14; Pixel 8 Build/UQ1A.240105.004; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/121.0.6167.143 Mobile Safari/537.36 musical_ly_2023303040 JsSdk/1.0 NetType/WIFI Channel/googleplay AppName/musical_ly app_version/33.3.4 ByteLocale/en ByteFullLocale/en Region/US AppId/1233 Spark/1.5.0.5-alpha.2 AppVersion/33.3.4 BytedanceWebview/d8a21c6"
 
-// Twitter - iOS
+// Twitter/X - iOS
 const TWITTER_IOS_UA =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 26_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/23D5103d Twitter for iPhone/11.57"
+
+// Twitter/X - Android
+const TWITTER_ANDROID_UA =
+  "Mozilla/5.0 (Linux; Android 11; V2072A Build/RP1A.200720.012; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/145.0.7632.80 Mobile Safari/537.36 TwitterAndroid"
 
 // WeChat - iOS
 const WECHAT_IOS_UA =
@@ -141,6 +150,7 @@ describe("isInAppBrowser", () => {
       ["TikTok iOS", TIKTOK_IOS_UA],
       ["TikTok Android", TIKTOK_ANDROID_UA],
       ["Twitter iOS", TWITTER_IOS_UA],
+      ["Twitter Android", TWITTER_ANDROID_UA],
       ["WeChat iOS", WECHAT_IOS_UA],
       ["WeChat Android", WECHAT_ANDROID_UA],
       ["WhatsApp iOS", WHATSAPP_IOS_UA],
@@ -300,6 +310,12 @@ describe("getEscapeUrl", () => {
     )
   })
 
+  it("uses Android intent for Twitter/X on Android", () => {
+    expect(getEscapeUrl(HTTPS_URL, TWITTER_ANDROID_UA)).toBe(
+      `intent://example.com/path?foo=1#Intent;scheme=https;S.browser_fallback_url=${encodeURIComponent(HTTPS_URL)};end`
+    )
+  })
+
   it("uses x-safari-https for iOS in-app browsers", () => {
     expect(getEscapeUrl(HTTPS_URL, FACEBOOK_IOS_UA)).toBe(
       "x-safari-https://example.com/path?foo=1"
@@ -360,6 +376,23 @@ describe("getEscapeUrl", () => {
   })
 })
 
+describe("needsUserGesture", () => {
+  it("is true for Meta iOS and Twitter/X iOS", () => {
+    expect(needsUserGesture(FACEBOOK_IOS_UA)).toBe(true)
+    expect(needsUserGesture(INSTAGRAM_IOS_UA)).toBe(true)
+    expect(needsUserGesture(THREADS_IOS_UA)).toBe(true)
+    expect(needsUserGesture(MESSENGER_IOS_UA)).toBe(true)
+    expect(needsUserGesture(TWITTER_IOS_UA)).toBe(true)
+  })
+
+  it("is false for Twitter/X on Android and other non-gated apps", () => {
+    expect(needsUserGesture(TWITTER_ANDROID_UA)).toBe(false)
+    expect(needsUserGesture(FACEBOOK_ANDROID_UA)).toBe(false)
+    expect(needsUserGesture(TIKTOK_IOS_UA)).toBe(false)
+    expect(needsUserGesture(GENERIC_INAPP_UA)).toBe(false)
+  })
+})
+
 describe("attemptEscape", () => {
   it("writes to global location when window is unavailable", () => {
     const stubLocation = { href: HTTPS_URL }
@@ -407,7 +440,7 @@ describe("attemptEscape", () => {
     ;(globalThis as any).window = originalWindow
   })
 
-  it("still auto-navigates non-Meta iOS via x-safari", () => {
+  it("skips auto-redirect for Twitter/X iOS (gesture required)", () => {
     const stubLocation = { href: HTTPS_URL }
     const originalWindow = globalThis.window
     ;(globalThis as any).window = {
@@ -415,7 +448,33 @@ describe("attemptEscape", () => {
     }
 
     attemptEscape(HTTPS_URL, TWITTER_IOS_UA)
+    expect(stubLocation.href).toBe(HTTPS_URL)
+
+    ;(globalThis as any).window = originalWindow
+  })
+
+  it("still auto-navigates non-gated iOS via x-safari", () => {
+    const stubLocation = { href: HTTPS_URL }
+    const originalWindow = globalThis.window
+    ;(globalThis as any).window = {
+      location: stubLocation,
+    }
+
+    attemptEscape(HTTPS_URL, TIKTOK_IOS_UA)
     expect(stubLocation.href).toBe("x-safari-https://example.com/path?foo=1")
+
+    ;(globalThis as any).window = originalWindow
+  })
+
+  it("still auto-redirects Twitter/X on Android via intent://", () => {
+    const stubLocation = { href: HTTPS_URL }
+    const originalWindow = globalThis.window
+    ;(globalThis as any).window = {
+      location: stubLocation,
+    }
+
+    attemptEscape(HTTPS_URL, TWITTER_ANDROID_UA)
+    expect(stubLocation.href).toStartWith("intent://")
 
     ;(globalThis as any).window = originalWindow
   })

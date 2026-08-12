@@ -18,12 +18,14 @@ Detect in-app browsers and generate escape URLs to open the current page in an e
 | Telegram | ✅ | ✅* |
 | Threads | ✅ | ✅ |
 | TikTok | ✅ | ✅ |
-| Twitter/X | ✅ | - |
+| Twitter/X | ✅* | ✅ |
 | WeChat | ✅ | ✅ |
 | Weibo | ✅ | ✅ |
 | WhatsApp | ✅ | ✅ |
 
 \*Telegram Android has no UA signal; detected via runtime `window.TelegramWebview` (client-side only).
+
+\*Twitter/X on iOS drops JS-initiated `x-safari-*` redirects — auto-escape is skipped (`needsUserGesture`); use `EiabEscapeDialog` / `EiabEscapeLink` so the scheme fires from a real user tap. Android uses the standard `intent://` path.
 
 Also detects generic WebView patterns (iOS WKWebView without Safari token, Android `wv` marker) and 15+ additional in-app browsers (Naver, KakaoStory, Band, Electron, etc.).
 
@@ -70,12 +72,14 @@ export default function Layout({ children }) {
 ### Core (`eiab`)
 
 - `isInAppBrowser(userAgent?: string): boolean` -- Returns `true` if the UA matches in-app browser patterns.
+- `needsUserGesture(userAgent?: string): boolean` -- Returns `true` when automatic redirects are dropped/hang and a real user tap is required (Meta iOS + Twitter/X iOS).
 - `getEscapeUrl(currentUrl?, userAgent?): string | null` -- Returns a URL/scheme to escape the in-app browser, or `null`.
-- `attemptEscape(currentUrl?, userAgent?): void` -- Convenience wrapper that redirects to the escape URL if detected. No-ops on Meta iOS (Facebook/Instagram/Messenger/Threads) where auto scheme navigation hangs or is dropped — use `EiabEscapeDialog` / `EiabEscapeLink` there.
+- `attemptEscape(currentUrl?, userAgent?): void` -- Convenience wrapper that redirects to the escape URL if detected. No-ops when `needsUserGesture` is true — use `EiabEscapeDialog` / `EiabEscapeLink` there.
 
 ### React (`eiab/react`)
 
-- **`EscapeInAppBrowser`** -- Attempts automatic escape on mount. Accepts an optional `fallback` prop rendered when automatic escape fails (e.g. Meta iOS apps — see notes below).
+- **`EscapeInAppBrowser`** -- Attempts automatic escape on mount (skipped when `needsUserGesture`). Accepts an optional `fallback` prop rendered when automatic escape fails or requires a tap (e.g. Meta iOS, Twitter/X iOS — see notes below).
+- **`needsUserGesture`** -- Also re-exported from `eiab/react`.
 - **`EiabEscapeDialog`** -- Bottom-sheet dialog with "Open in browser", "Copy link", and dismiss actions. Relies on native anchor navigation from a user tap.
 - **`EiabEscapeLink`** -- Inline tappable link (native `<a href>` to the scheme URL). Renders nothing when not in an in-app browser.
 - **`useIsInAppBrowser(userAgent?)`** -- Returns `null` during SSR, `boolean` after hydration.
@@ -89,18 +93,28 @@ export default function Layout({ children }) {
 |----------|--------|-------|
 | Instagram (iOS) | `instagram://extbrowser/?url=...` | Instagram's own native external-browser host (best-effort — see caveat) |
 | Threads (iOS) | `barcelona://extbrowser/?url=...` | Threads' native external-browser host (best-effort — see caveat) |
+| Twitter/X (iOS) | `x-safari-https://` via user tap | Auto-redirect skipped; use dialog/link (see caveat) |
 | iOS (other) | `x-safari-https://` scheme | Opens Safari when the WebView allows it |
-| Android | `intent://...#Intent;scheme=https;end` | Opens the user's default browser |
+| Android | `intent://...#Intent;scheme=https;end` | Opens the user's default browser (includes Twitter/X) |
 | KakaoTalk | `kakaotalk://web/openExternal?url=...` | Native external browser scheme |
 | LINE | `?openExternalBrowser=1` query param | Works on both iOS and Android |
 
 The KakaoTalk/LINE/Instagram/Threads rows use each app's **own native "open externally" scheme**, handled by the host app rather than by iOS — the most robust class of escape.
 
+## Twitter/X iOS caveat
+
+Twitter/X on iOS silently drops programmatic `x-safari-*` redirects (`location.href` / `window.open` without a real tap). `attemptEscape` and `EscapeInAppBrowser` therefore skip auto-redirect for Twitter/X iOS and rely on the fallback UI:
+
+1. Render `EiabEscapeDialog` (or `EiabEscapeLink`) so escape is triggered by a native `<a href>` tap.
+2. Offer **Copy link** as a backup if the host WebView still won't hand off.
+
+On Android, Twitter/X uses the standard `intent://` escape and does not need a gesture gate.
+
 ## Meta iOS caveat
 
 Meta's iOS in-app browsers (Instagram, Facebook, Messenger, Threads) are hardened WKWebViews that drop — and on Facebook iOS 555+, **hang on** — `x-safari-*` scheme redirects without user activation. IG v417+ also filters them even on tap. **There is no purely-browser-based API that reliably opens Safari from these apps.**
 
-`attemptEscape()` therefore **does not auto-navigate on Meta iOS**. Auto `location.href` to a blocked scheme is what left Facebook IAB pages stuck with no redirect. Use a user-tap UI instead.
+`attemptEscape()` therefore **does not auto-navigate on Meta iOS** (`needsUserGesture`). Auto `location.href` to a blocked scheme is what left Facebook IAB pages stuck with no redirect. Use a user-tap UI instead.
 
 For **Instagram** / **Threads**, `getEscapeUrl` emits each app's native deep link (`instagram://extbrowser/?url=...` / `barcelona://extbrowser/?url=...`), handled by the host app (not the WebView). Same class of native-exit scheme as KakaoTalk/LINE, but **best-effort, not guaranteed**: Meta often requires a real tap, gates handlers to trusted callers, and may sanitize the URL back into the in-app browser. Facebook/Messenger still surface `x-safari-*` for tap-driven UI only — there is no confirmed Facebook native extbrowser host.
 
