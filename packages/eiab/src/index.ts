@@ -6,6 +6,8 @@ const LINE_REGEX = /(?:iphone|ipad|android).* line\//i
 // Check Threads before Instagram: some Threads UAs also contain "Instagram".
 const THREADS_REGEX = /\bBarcelona/i
 const INSTAGRAM_REGEX = /\bInstagram/i
+// Twitter/X: "Twitter for iPhone", "Twitter for iPad", "TwitterAndroid"
+const TWITTER_REGEX = /\bTwitter/i
 // Meta iOS IABs (FB/Messenger/IG/Threads). Auto location.href to x-safari-*
 // (and often even to native schemes without a tap) is dropped or hangs the
 // WebView — Facebook iOS 555+ is the known hang case (#2).
@@ -45,7 +47,7 @@ const INAPP_PATTERNS = [
   "GSA", // Google Search App
 
   // Social
-  "\\bTwitter",
+  "\\bTwitter", // Twitter/X (iOS + Android)
   "Snapchat",
   "LinkedInApp",
 
@@ -256,14 +258,38 @@ function isMetaIOS(userAgent: string): boolean {
   return isIOS(userAgent) && META_IOS_REGEX.test(userAgent)
 }
 
+/**
+ * Returns true when automatic (JS-initiated) escape redirects are dropped or
+ * hang the host WebView, so a real user tap is required instead.
+ *
+ * Covers Meta iOS (Facebook hang on 555+, IG/Threads/Messenger drop) and
+ * Twitter/X iOS (silently ignores programmatic x-safari-* navigations).
+ * Pair with `EiabEscapeDialog` / `EiabEscapeLink` so the scheme fires from a
+ * native `<a href>` click.
+ */
+export function needsUserGesture(userAgent?: string): boolean {
+  const ua = userAgent ?? getDefaultUserAgent() ?? ""
+
+  if (isMetaIOS(ua)) {
+    return true
+  }
+
+  // Twitter/X iOS: JS-initiated x-safari-* redirects are dropped; only a
+  // user-activated native anchor navigation carries enough signal to escape.
+  if (TWITTER_REGEX.test(ua) && isIOS(ua)) {
+    return true
+  }
+
+  return false
+}
+
 export function attemptEscape(currentUrl?: string, userAgent?: string): void {
-  // Best-effort automatic escape. Meta iOS WKWebViews (Instagram, Facebook,
-  // Messenger, Threads) drop or hang on scheme redirects without user
-  // activation — Facebook iOS 555+ hangs on x-safari-* location.href (#2).
+  // Best-effort automatic escape. Apps reported by needsUserGesture() drop or
+  // hang on scheme redirects without user activation — Facebook iOS 555+ hangs
+  // on x-safari-* location.href (#2); Twitter/X iOS silently drops them.
   // Skip auto-navigation there; callers must pair with a user-tap UI
   // (e.g. EiabEscapeDialog).
-  const ua = userAgent ?? getDefaultUserAgent() ?? ""
-  if (isMetaIOS(ua)) {
+  if (needsUserGesture(userAgent)) {
     return
   }
 

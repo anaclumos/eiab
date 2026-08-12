@@ -66,6 +66,7 @@ test.describe("User agent detection edge cases", () => {
       "Mozilla/5.0 (Android) line/13.0",
       "Mozilla/5.0 (X11; Linux x86_64) electron",
       "Mozilla/5.0 (iPhone) Twitter",
+      "Mozilla/5.0 (Linux; Android 14; wv) AppleWebKit/537.36 TwitterAndroid",
     ]
 
     for (const ua of inAppUAs) {
