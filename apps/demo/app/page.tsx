@@ -531,6 +531,12 @@ function EscapeStrategiesDemo() {
         "Instagram's own native external-browser scheme (best-effort; pair with the manual fallback)",
     },
     {
+      platform: "Threads (iOS)",
+      method: "barcelona://extbrowser/?url=...",
+      description:
+        "Threads' native external-browser scheme (best-effort; pair with the manual fallback)",
+    },
+    {
       platform: "iOS (Generic)",
       method: "x-safari-https://...",
       description: "Opens Safari when the WebView allows it",
@@ -640,12 +646,14 @@ function EscapeUIDemo() {
         </div>
 
         <div className="rounded-md bg-amber-500/10 p-3 text-[10px] text-amber-700 dark:text-amber-400">
-          Meta iOS apps (Instagram v417+, Facebook) filter{" "}
-          <code>x-safari-https://</code> redirects even on tap. For Instagram,
-          these components emit its native <code>instagram://extbrowser/</code>{" "}
-          scheme as a best-effort escape — but the only guaranteed exit is the
-          manual <code>•••</code> → Open in external browser. Always offer Copy
-          link as a fallback.
+          Meta iOS apps (Instagram v417+, Facebook 555+) filter{" "}
+          <code>x-safari-https://</code> redirects — Facebook can hang on
+          auto-redirect, so <code>attemptEscape()</code> skips Meta iOS. For
+          Instagram/Threads these components emit native{" "}
+          <code>instagram://</code>/<code>barcelona://extbrowser/</code> schemes
+          as a best-effort escape — but the only guaranteed exit is the manual{" "}
+          <code>•••</code> → Open in external browser. Always offer Copy link as
+          a fallback.
         </div>
       </CardContent>
     </Card>

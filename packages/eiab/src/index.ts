@@ -1,9 +1,16 @@
 // Apps with custom escape mechanisms (order matters - checked first)
 const KAKAOTALK_REGEX = /(?:iphone|ipad|android).* kakaotalk/i
 const LINE_REGEX = /(?:iphone|ipad|android).* line\//i
-// Instagram exposes a native external-browser deep link host ("extbrowser")
-// that the Instagram app itself handles (outside the WKWebView).
+// Threads ("Barcelona") and Instagram expose native external-browser deep link
+// hosts ("extbrowser") that the host app handles outside the WKWebView.
+// Check Threads before Instagram: some Threads UAs also contain "Instagram".
+const THREADS_REGEX = /\bBarcelona/i
 const INSTAGRAM_REGEX = /\bInstagram/i
+// Meta iOS IABs (FB/Messenger/IG/Threads). Auto location.href to x-safari-*
+// (and often even to native schemes without a tap) is dropped or hangs the
+// WebView — Facebook iOS 555+ is the known hang case (#2).
+const META_IOS_REGEX =
+  /\b(?:FBAN|FBIOS|FB_IAB|FBAV|Facebook|Instagram|Barcelona|IABMV\/)/i
 
 // Supported apps detection patterns (based on inapp-spy research + community reports)
 const INAPP_PATTERNS = [
@@ -222,15 +229,16 @@ export function getEscapeUrl(
   }
 
   if (isIOS(ua)) {
-    // Instagram registers a native "open in external browser" deep link host
-    // ("instagram://extbrowser?url=...") handled by the Instagram app, not the
-    // WKWebView. The theory is that an app-handled scheme can sidestep the
-    // x-safari-* filtering Meta added in IG v417+, but this is UNVERIFIED on
-    // iOS (no real-device confirmation) and on Android the handler gates to
-    // trusted callers and sanitizes https back into the in-app browser. Treat
-    // it as a best-effort attempt only and always pair it with a user-tap
-    // fallback UI (EiabEscapeDialog / EiabEscapeLink) plus the manual
-    // "•••  → Open in external browser" path, which is the only reliable exit.
+    // Meta apps register native "open in external browser" deep link hosts
+    // handled by the app, not the WKWebView — the same class of native-exit
+    // scheme used for KakaoTalk/LINE. These sidestep x-safari-* filtering Meta
+    // added in IG v417+ / FB 555+, but are best-effort only: handlers often
+    // require a real user tap, gate to trusted callers, and may sanitize the
+    // URL back into the in-app browser. Always pair with EiabEscapeDialog /
+    // EiabEscapeLink plus the manual "••• → Open in external browser" path.
+    if (THREADS_REGEX.test(ua)) {
+      return `barcelona://extbrowser/?url=${encodeURIComponent(url)}`
+    }
     if (INSTAGRAM_REGEX.test(ua)) {
       return `instagram://extbrowser/?url=${encodeURIComponent(url)}`
     }
@@ -244,11 +252,21 @@ export function getEscapeUrl(
   return null
 }
 
+function isMetaIOS(userAgent: string): boolean {
+  return isIOS(userAgent) && META_IOS_REGEX.test(userAgent)
+}
+
 export function attemptEscape(currentUrl?: string, userAgent?: string): void {
-  // Best-effort automatic escape. Note: on Meta iOS apps (Instagram, Facebook,
-  // Messenger, Threads) the WKWebView silently drops x-safari-* redirects when
-  // there's no user activation. Callers should pair this with a user-tap UI
-  // (e.g. EiabEscapeDialog) for those apps.
+  // Best-effort automatic escape. Meta iOS WKWebViews (Instagram, Facebook,
+  // Messenger, Threads) drop or hang on scheme redirects without user
+  // activation — Facebook iOS 555+ hangs on x-safari-* location.href (#2).
+  // Skip auto-navigation there; callers must pair with a user-tap UI
+  // (e.g. EiabEscapeDialog).
+  const ua = userAgent ?? getDefaultUserAgent() ?? ""
+  if (isMetaIOS(ua)) {
+    return
+  }
+
   const escapeUrl = getEscapeUrl(currentUrl, userAgent)
   if (!escapeUrl) {
     return

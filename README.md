@@ -71,7 +71,7 @@ export default function Layout({ children }) {
 
 - `isInAppBrowser(userAgent?: string): boolean` -- Returns `true` if the UA matches in-app browser patterns.
 - `getEscapeUrl(currentUrl?, userAgent?): string | null` -- Returns a URL/scheme to escape the in-app browser, or `null`.
-- `attemptEscape(currentUrl?, userAgent?): void` -- Convenience wrapper that redirects to the escape URL if detected.
+- `attemptEscape(currentUrl?, userAgent?): void` -- Convenience wrapper that redirects to the escape URL if detected. No-ops on Meta iOS (Facebook/Instagram/Messenger/Threads) where auto scheme navigation hangs or is dropped — use `EiabEscapeDialog` / `EiabEscapeLink` there.
 
 ### React (`eiab/react`)
 
@@ -88,23 +88,26 @@ export default function Layout({ children }) {
 | Platform | Method | Notes |
 |----------|--------|-------|
 | Instagram (iOS) | `instagram://extbrowser/?url=...` | Instagram's own native external-browser host (best-effort — see caveat) |
+| Threads (iOS) | `barcelona://extbrowser/?url=...` | Threads' native external-browser host (best-effort — see caveat) |
 | iOS (other) | `x-safari-https://` scheme | Opens Safari when the WebView allows it |
 | Android | `intent://...#Intent;scheme=https;end` | Opens the user's default browser |
 | KakaoTalk | `kakaotalk://web/openExternal?url=...` | Native external browser scheme |
 | LINE | `?openExternalBrowser=1` query param | Works on both iOS and Android |
 
-The KakaoTalk/LINE/Instagram rows use each app's **own native "open externally" scheme**, handled by the host app rather than by iOS — the most robust class of escape.
+The KakaoTalk/LINE/Instagram/Threads rows use each app's **own native "open externally" scheme**, handled by the host app rather than by iOS — the most robust class of escape.
 
 ## Meta iOS caveat
 
-Meta's iOS in-app browsers (Instagram, Facebook, Messenger, Threads) are hardened WKWebViews that drop `x-safari-*` scheme redirects without user activation, and IG v417+ filters them even on tap. **There is no purely-browser-based API that reliably opens Safari from these apps.**
+Meta's iOS in-app browsers (Instagram, Facebook, Messenger, Threads) are hardened WKWebViews that drop — and on Facebook iOS 555+, **hang on** — `x-safari-*` scheme redirects without user activation. IG v417+ also filters them even on tap. **There is no purely-browser-based API that reliably opens Safari from these apps.**
 
-For **Instagram** specifically, `eiab` instead emits Instagram's own native deep link, `instagram://extbrowser/?url=...`, which the Instagram app (not the WebView) handles. This is the best-grounded option — it's the same class of native-exit scheme used for KakaoTalk/LINE — but treat it as **best-effort, not guaranteed**: Meta's handler gates to trusted callers and may sanitize the URL back into the in-app browser, and there is no confirmed real-device proof it ejects to Safari on current iOS. Always pair it with the manual fallback below.
+`attemptEscape()` therefore **does not auto-navigate on Meta iOS**. Auto `location.href` to a blocked scheme is what left Facebook IAB pages stuck with no redirect. Use a user-tap UI instead.
+
+For **Instagram** / **Threads**, `getEscapeUrl` emits each app's native deep link (`instagram://extbrowser/?url=...` / `barcelona://extbrowser/?url=...`), handled by the host app (not the WebView). Same class of native-exit scheme as KakaoTalk/LINE, but **best-effort, not guaranteed**: Meta often requires a real tap, gates handlers to trusted callers, and may sanitize the URL back into the in-app browser. Facebook/Messenger still surface `x-safari-*` for tap-driven UI only — there is no confirmed Facebook native extbrowser host.
 
 What to do:
 
 1. Render `EiabEscapeDialog` (or `EiabEscapeLink`) so the scheme is triggered by a real user tap — native anchor navigation carries the strongest signal.
-2. Offer the dialog's **Copy link** action and Meta's documented manual path, which is the only *guaranteed* exit: *Instagram:* tap `•••` → *Open in external browser*. *Facebook:* tap the options menu → *Open in external browser*.
+2. Offer the dialog's **Copy link** action and Meta's documented manual path, which is the only *guaranteed* exit: *Instagram / Threads:* tap `•••` → *Open in external browser*. *Facebook:* tap the options menu → *Open in external browser*.
 
 ## Notes
 
