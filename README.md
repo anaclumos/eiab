@@ -73,6 +73,7 @@ export default function Layout({ children }) {
 - `needsUserGesture(userAgent?: string): boolean` -- Returns `true` when automatic redirects are dropped/hang and a real user tap is required (Meta iOS).
 - `getEscapeUrl(currentUrl?, userAgent?): string | null` -- Returns a URL/scheme to escape the in-app browser, or `null`.
 - `attemptEscape(currentUrl?, userAgent?): void` -- Convenience wrapper that redirects to the escape URL if detected. No-ops when `needsUserGesture` is true — use `EiabEscapeDialog` / `EiabEscapeLink` there.
+- `getDebugInfo(): EiabDebugInfo` -- Live-environment snapshot (UA, detection, escape URL, viewport, share/clipboard). Requires a browser.
 
 ### React (`eiab/react`)
 

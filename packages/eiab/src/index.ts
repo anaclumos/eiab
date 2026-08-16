@@ -272,6 +272,160 @@ export function needsUserGesture(userAgent?: string): boolean {
   return isMetaIOS(ua)
 }
 
+export interface EiabUserAgentData {
+  brands: { brand: string; version: string }[]
+  mobile: boolean | null
+  platform: string | null
+}
+
+export interface EiabConnectionInfo {
+  effectiveType: string | null
+  type: string | null
+  downlink: number | null
+  rtt: number | null
+  saveData: boolean | null
+}
+
+export interface EiabDebugInfo {
+  href: string
+  userAgent: string
+  referrer: string
+  title: string
+  isInAppBrowser: boolean
+  needsUserGesture: boolean
+  escapeUrl: string | null
+  isIOS: boolean
+  isAndroid: boolean
+  language: string
+  languages: string[]
+  platform: string
+  vendor: string
+  cookieEnabled: boolean
+  maxTouchPoints: number
+  standalone: boolean
+  visibilityState: string
+  innerWidth: number
+  innerHeight: number
+  screenWidth: number
+  screenHeight: number
+  devicePixelRatio: number
+  telegramWebview: boolean
+  telegramWebApp: boolean
+  hasShare: boolean
+  hasClipboard: boolean
+  hasSafari: boolean
+  hasWebkit: boolean
+  historyLength: number
+  timeOrigin: number
+  collectedAt: string
+  userAgentData: EiabUserAgentData | null
+  connection: EiabConnectionInfo | null
+}
+
+interface NavigatorDebugExtras {
+  standalone?: boolean
+  userAgentData?: {
+    brands?: { brand: string; version: string }[]
+    mobile?: boolean
+    platform?: string
+  }
+  connection?: {
+    effectiveType?: string
+    type?: string
+    downlink?: number
+    rtt?: number
+    saveData?: boolean
+  }
+  share?: (...args: unknown[]) => Promise<unknown>
+}
+
+function readUserAgentData(
+  nav: NavigatorDebugExtras
+): EiabUserAgentData | null {
+  const uad = nav.userAgentData
+  if (!uad) {
+    return null
+  }
+  return {
+    brands: Array.from(uad.brands ?? []),
+    mobile: uad.mobile ?? null,
+    platform: uad.platform ?? null,
+  }
+}
+
+function readConnection(nav: NavigatorDebugExtras): EiabConnectionInfo | null {
+  const conn = nav.connection
+  if (!conn) {
+    return null
+  }
+  return {
+    effectiveType: conn.effectiveType ?? null,
+    type: conn.type ?? null,
+    downlink: conn.downlink ?? null,
+    rtt: conn.rtt ?? null,
+    saveData: conn.saveData ?? null,
+  }
+}
+
+function isStandaloneDisplay(nav: NavigatorDebugExtras): boolean {
+  const standaloneMedia =
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(display-mode: standalone)").matches
+  return Boolean(nav.standalone || standaloneMedia)
+}
+
+/**
+ * Snapshot of the live browser environment plus eiab's detection result.
+ * Intended for support / field debugging (copy-paste from a demo or overlay).
+ * Requires `window` + `navigator`.
+ */
+export function getDebugInfo(): EiabDebugInfo {
+  if (typeof window === "undefined" || typeof navigator === "undefined") {
+    throw new Error("getDebugInfo() requires a browser environment")
+  }
+
+  const nav = navigator as Navigator & NavigatorDebugExtras
+  const ua = nav.userAgent ?? ""
+  const win = window as Window & { Telegram?: { WebApp?: unknown } }
+
+  return {
+    href: typeof location !== "undefined" ? location.href : "",
+    userAgent: ua,
+    referrer: typeof document !== "undefined" ? document.referrer : "",
+    title: typeof document !== "undefined" ? document.title : "",
+    isInAppBrowser: isInAppBrowser(),
+    needsUserGesture: needsUserGesture(),
+    escapeUrl: getEscapeUrl(),
+    isIOS: isIOS(ua),
+    isAndroid: isAndroid(ua),
+    language: nav.language ?? "",
+    languages: Array.from(nav.languages ?? []),
+    platform: nav.platform ?? "",
+    vendor: nav.vendor ?? "",
+    cookieEnabled: Boolean(nav.cookieEnabled),
+    maxTouchPoints: nav.maxTouchPoints ?? 0,
+    standalone: isStandaloneDisplay(nav),
+    visibilityState:
+      typeof document !== "undefined" ? document.visibilityState : "",
+    innerWidth: window.innerWidth ?? 0,
+    innerHeight: window.innerHeight ?? 0,
+    screenWidth: window.screen?.width ?? 0,
+    screenHeight: window.screen?.height ?? 0,
+    devicePixelRatio: window.devicePixelRatio ?? 1,
+    telegramWebview: isTelegramRuntime(),
+    telegramWebApp: Boolean(win.Telegram?.WebApp),
+    hasShare: typeof nav.share === "function",
+    hasClipboard: Boolean(nav.clipboard),
+    hasSafari: "safari" in window,
+    hasWebkit: "webkit" in window,
+    historyLength: window.history?.length ?? 0,
+    timeOrigin: typeof performance !== "undefined" ? performance.timeOrigin : 0,
+    collectedAt: new Date().toISOString(),
+    userAgentData: readUserAgentData(nav),
+    connection: readConnection(nav),
+  }
+}
+
 export function attemptEscape(currentUrl?: string, userAgent?: string): void {
   // Best-effort automatic escape. Apps reported by needsUserGesture() drop or
   // hang on scheme redirects without user activation — Facebook iOS 555+ hangs

@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test"
 
 import {
   attemptEscape,
+  getDebugInfo,
   getEscapeUrl,
   isInAppBrowser,
   needsUserGesture,
@@ -9,6 +10,7 @@ import {
 
 const HTTPS_URL = "https://example.com/path?foo=1"
 const HTTP_URL = "http://example.com/path?foo=1"
+const ISO_DATE_PREFIX = /^\d{4}-\d{2}-\d{2}T/
 
 // Facebook - iOS
 const FACEBOOK_IOS_UA =
@@ -496,5 +498,105 @@ describe("attemptEscape", () => {
     expect(stubLocation.href).toStartWith("intent://")
 
     ;(globalThis as any).window = originalWindow
+  })
+})
+
+describe("getDebugInfo", () => {
+  it("throws outside a browser environment", () => {
+    const originalWindow = globalThis.window
+    const originalNavigator = globalThis.navigator
+    // @ts-expect-error -- simulate SSR / non-browser
+    globalThis.window = undefined
+    // @ts-expect-error -- simulate SSR / non-browser
+    globalThis.navigator = undefined
+
+    expect(() => getDebugInfo()).toThrow("browser environment")
+
+    globalThis.window = originalWindow
+    globalThis.navigator = originalNavigator
+  })
+
+  it("snapshots live detection for a Twitter/X iOS UA", () => {
+    const originalWindow = globalThis.window
+    const originalNavigator = globalThis.navigator
+    const originalLocation = globalThis.location
+    const originalDocument = globalThis.document
+    const originalPerformance = globalThis.performance
+
+    const href = "https://eiab.dev/preview"
+    Object.defineProperty(globalThis, "location", {
+      configurable: true,
+      value: { href },
+    })
+    Object.defineProperty(globalThis, "navigator", {
+      configurable: true,
+      value: {
+        userAgent: TWITTER_IOS_UA,
+        language: "en-US",
+        languages: ["en-US", "en"],
+        platform: "iPhone",
+        vendor: "Apple Computer, Inc.",
+        cookieEnabled: true,
+        maxTouchPoints: 5,
+        clipboard: {},
+        standalone: false,
+      },
+    })
+    Object.defineProperty(globalThis, "document", {
+      configurable: true,
+      value: {
+        referrer: "https://t.co/abc",
+        title: "eiab",
+        visibilityState: "visible",
+      },
+    })
+    Object.defineProperty(globalThis, "performance", {
+      configurable: true,
+      value: { timeOrigin: 1_700_000_000_000 },
+    })
+    ;(globalThis as any).window = {
+      location: { href },
+      innerWidth: 390,
+      innerHeight: 844,
+      screen: { width: 390, height: 844 },
+      devicePixelRatio: 3,
+      history: { length: 2 },
+      matchMedia: () => ({ matches: false }),
+    }
+
+    const info = getDebugInfo()
+    expect(info.href).toBe(href)
+    expect(info.userAgent).toBe(TWITTER_IOS_UA)
+    expect(info.referrer).toBe("https://t.co/abc")
+    expect(info.isInAppBrowser).toBe(true)
+    expect(info.needsUserGesture).toBe(false)
+    expect(info.escapeUrl).toBe("x-safari-https://eiab.dev/preview")
+    expect(info.isIOS).toBe(true)
+    expect(info.isAndroid).toBe(false)
+    expect(info.hasClipboard).toBe(true)
+    expect(info.hasShare).toBe(false)
+    expect(info.telegramWebview).toBe(false)
+    expect(info.innerWidth).toBe(390)
+    expect(info.userAgentData).toBeNull()
+    expect(info.connection).toBeNull()
+    expect(info.collectedAt).toMatch(ISO_DATE_PREFIX)
+
+    ;(globalThis as any).window = originalWindow
+    Object.defineProperty(globalThis, "navigator", {
+      configurable: true,
+      value: originalNavigator,
+    })
+    Object.defineProperty(globalThis, "location", {
+      configurable: true,
+      value: originalLocation,
+    })
+    Object.defineProperty(globalThis, "document", {
+      configurable: true,
+      value: originalDocument,
+    })
+    Object.defineProperty(globalThis, "performance", {
+      configurable: true,
+      value: originalPerformance,
+    })
   })
 })
