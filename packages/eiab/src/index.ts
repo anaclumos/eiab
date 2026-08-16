@@ -6,13 +6,18 @@ const LINE_REGEX = /(?:iphone|ipad|android).* line\//i
 // Check Threads before Instagram: some Threads UAs also contain "Instagram".
 const THREADS_REGEX = /\bBarcelona/i
 const INSTAGRAM_REGEX = /\bInstagram/i
-// Twitter/X: "Twitter for iPhone", "Twitter for iPad", "TwitterAndroid"
-const TWITTER_REGEX = /\bTwitter/i
 // Meta iOS IABs (FB/Messenger/IG/Threads). Auto location.href to x-safari-*
 // (and often even to native schemes without a tap) is dropped or hangs the
 // WebView — Facebook iOS 555+ is the known hang case (#2).
 const META_IOS_REGEX =
   /\b(?:FBAN|FBIOS|FB_IAB|FBAV|Facebook|Instagram|Barcelona|IABMV\/)/i
+// Twitter/X iOS IAB. Independent matrix (inappdebugger / shalanah, updated
+// 2026-03-07): Safari scheme ❌, browser scheme ❌. Field-tested on Twitter
+// for iPhone 12.17 / iOS 27: x-safari-*, twitter:// hosts, _blank https,
+// and HTTP 302s to x-safari-* stay in-app (302 reloads). shortcuts://
+// x-error broke on iOS 18.1+ (inapp-debugger#8). Web Share opens a sheet
+// (rejected). There is no JS/HTTP navigation that opens the default browser.
+const TWITTER_REGEX = /\bTwitter/i
 
 // Supported apps detection patterns (based on inapp-spy research + community reports)
 const INAPP_PATTERNS = [
@@ -141,6 +146,10 @@ function isAndroid(userAgent: string): boolean {
   return ANDROID_REGEX.test(userAgent)
 }
 
+function isTwitterIOS(userAgent: string): boolean {
+  return isIOS(userAgent) && TWITTER_REGEX.test(userAgent)
+}
+
 function addQueryParam(url: string, key: string, value: string): string {
   try {
     const parsed = new URL(url)
@@ -162,6 +171,13 @@ function replaceScheme(url: string, from: string, to: string): string | null {
     return null
   }
   return `${to}${url.slice(from.length)}`
+}
+
+export function toXSafariUrl(url: string): string | null {
+  return (
+    replaceScheme(url, "https://", "x-safari-https://") ??
+    replaceScheme(url, "http://", "x-safari-http://")
+  )
 }
 
 function toAndroidIntent(url: string): string | null {
@@ -245,10 +261,13 @@ export function getEscapeUrl(
       return `instagram://extbrowser/?url=${encodeURIComponent(url)}`
     }
 
-    return (
-      replaceScheme(url, "https://", "x-safari-https://") ??
-      replaceScheme(url, "http://", "x-safari-http://")
-    )
+    if (TWITTER_REGEX.test(ua)) {
+      // Not a navigable escape. Returned so copy / debug have the page URL.
+      // Pair with needsManualEscape() — do not assign this to location or <a>.
+      return url
+    }
+
+    return toXSafariUrl(url)
   }
 
   return null
@@ -262,33 +281,197 @@ function isMetaIOS(userAgent: string): boolean {
  * Returns true when automatic (JS-initiated) escape redirects are dropped or
  * hang the host WebView, so a real user tap is required instead.
  *
- * Covers Meta iOS (Facebook hang on 555+, IG/Threads/Messenger drop) and
- * Twitter/X iOS (silently ignores programmatic x-safari-* navigations).
- * Pair with `EiabEscapeDialog` / `EiabEscapeLink` so the scheme fires from a
- * native `<a href>` click.
+ * Meta iOS: Facebook 555+ hangs on x-safari-* location.href (#2); IG/Threads
+ * native schemes need a tap. Twitter/X iOS: every navigation stays in-app.
  */
 export function needsUserGesture(userAgent?: string): boolean {
   const ua = userAgent ?? getDefaultUserAgent() ?? ""
+  return isMetaIOS(ua) || isTwitterIOS(ua)
+}
 
-  if (isMetaIOS(ua)) {
-    return true
+/**
+ * Twitter/X iOS: do not navigate. `x-safari-*`, custom hosts, `_blank`,
+ * HTTP 302s to `x-safari-*`, and Shortcuts `x-error` (dead on iOS 18.1+)
+ * all reload or no-op inside X. Use copy + the host app chrome
+ * (••• → Open in browser) or X Settings → Display → Use in-app browser.
+ */
+export function needsManualEscape(userAgent?: string): boolean {
+  const ua = userAgent ?? getDefaultUserAgent() ?? ""
+  return isTwitterIOS(ua)
+}
+
+export interface EiabUserAgentData {
+  brands: { brand: string; version: string }[]
+  mobile: boolean | null
+  platform: string | null
+}
+
+export interface EiabConnectionInfo {
+  effectiveType: string | null
+  type: string | null
+  downlink: number | null
+  rtt: number | null
+  saveData: boolean | null
+}
+
+export interface EiabDebugInfo {
+  href: string
+  userAgent: string
+  referrer: string
+  title: string
+  isInAppBrowser: boolean
+  needsUserGesture: boolean
+  needsManualEscape: boolean
+  escapeUrl: string | null
+  webkitMessageHandlers: string[]
+  isIOS: boolean
+  isAndroid: boolean
+  language: string
+  languages: string[]
+  platform: string
+  vendor: string
+  cookieEnabled: boolean
+  maxTouchPoints: number
+  standalone: boolean
+  visibilityState: string
+  innerWidth: number
+  innerHeight: number
+  screenWidth: number
+  screenHeight: number
+  devicePixelRatio: number
+  telegramWebview: boolean
+  telegramWebApp: boolean
+  hasShare: boolean
+  hasClipboard: boolean
+  hasSafari: boolean
+  hasWebkit: boolean
+  historyLength: number
+  timeOrigin: number
+  collectedAt: string
+  userAgentData: EiabUserAgentData | null
+  connection: EiabConnectionInfo | null
+}
+
+interface NavigatorDebugExtras {
+  standalone?: boolean
+  userAgentData?: {
+    brands?: { brand: string; version: string }[]
+    mobile?: boolean
+    platform?: string
+  }
+  connection?: {
+    effectiveType?: string
+    type?: string
+    downlink?: number
+    rtt?: number
+    saveData?: boolean
+  }
+}
+
+function readUserAgentData(
+  nav: NavigatorDebugExtras
+): EiabUserAgentData | null {
+  const uad = nav.userAgentData
+  if (!uad) {
+    return null
+  }
+  return {
+    brands: Array.from(uad.brands ?? []),
+    mobile: uad.mobile ?? null,
+    platform: uad.platform ?? null,
+  }
+}
+
+function readConnection(nav: NavigatorDebugExtras): EiabConnectionInfo | null {
+  const conn = nav.connection
+  if (!conn) {
+    return null
+  }
+  return {
+    effectiveType: conn.effectiveType ?? null,
+    type: conn.type ?? null,
+    downlink: conn.downlink ?? null,
+    rtt: conn.rtt ?? null,
+    saveData: conn.saveData ?? null,
+  }
+}
+
+function isStandaloneDisplay(nav: NavigatorDebugExtras): boolean {
+  const standaloneMedia =
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(display-mode: standalone)").matches
+  return Boolean(nav.standalone || standaloneMedia)
+}
+
+function readWebkitMessageHandlers(): string[] {
+  const handlers = (
+    window as Window & { webkit?: { messageHandlers?: object } }
+  ).webkit?.messageHandlers
+  if (!handlers) {
+    return []
+  }
+  return Object.keys(handlers)
+}
+
+/**
+ * Snapshot of the live browser environment plus eiab's detection result.
+ * Intended for support / field debugging (copy-paste from a demo or overlay).
+ * Requires `window` + `navigator`.
+ */
+export function getDebugInfo(): EiabDebugInfo {
+  if (typeof window === "undefined" || typeof navigator === "undefined") {
+    throw new Error("getDebugInfo() requires a browser environment")
   }
 
-  // Twitter/X iOS: JS-initiated x-safari-* redirects are dropped; only a
-  // user-activated native anchor navigation carries enough signal to escape.
-  if (TWITTER_REGEX.test(ua) && isIOS(ua)) {
-    return true
-  }
+  const nav = navigator as Navigator & NavigatorDebugExtras
+  const ua = nav.userAgent ?? ""
+  const win = window as Window & { Telegram?: { WebApp?: unknown } }
 
-  return false
+  return {
+    href: typeof location !== "undefined" ? location.href : "",
+    userAgent: ua,
+    referrer: typeof document !== "undefined" ? document.referrer : "",
+    title: typeof document !== "undefined" ? document.title : "",
+    isInAppBrowser: isInAppBrowser(),
+    needsUserGesture: needsUserGesture(),
+    needsManualEscape: needsManualEscape(),
+    escapeUrl: getEscapeUrl(),
+    webkitMessageHandlers: readWebkitMessageHandlers(),
+    isIOS: isIOS(ua),
+    isAndroid: isAndroid(ua),
+    language: nav.language ?? "",
+    languages: Array.from(nav.languages ?? []),
+    platform: nav.platform ?? "",
+    vendor: nav.vendor ?? "",
+    cookieEnabled: Boolean(nav.cookieEnabled),
+    maxTouchPoints: nav.maxTouchPoints ?? 0,
+    standalone: isStandaloneDisplay(nav),
+    visibilityState:
+      typeof document !== "undefined" ? document.visibilityState : "",
+    innerWidth: window.innerWidth ?? 0,
+    innerHeight: window.innerHeight ?? 0,
+    screenWidth: window.screen?.width ?? 0,
+    screenHeight: window.screen?.height ?? 0,
+    devicePixelRatio: window.devicePixelRatio ?? 1,
+    telegramWebview: isTelegramRuntime(),
+    telegramWebApp: Boolean(win.Telegram?.WebApp),
+    hasShare: typeof nav.share === "function",
+    hasClipboard: Boolean(nav.clipboard),
+    hasSafari: "safari" in window,
+    hasWebkit: "webkit" in window,
+    historyLength: window.history?.length ?? 0,
+    timeOrigin: typeof performance !== "undefined" ? performance.timeOrigin : 0,
+    collectedAt: new Date().toISOString(),
+    userAgentData: readUserAgentData(nav),
+    connection: readConnection(nav),
+  }
 }
 
 export function attemptEscape(currentUrl?: string, userAgent?: string): void {
-  // Best-effort automatic escape. Apps reported by needsUserGesture() drop or
-  // hang on scheme redirects without user activation — Facebook iOS 555+ hangs
-  // on x-safari-* location.href (#2); Twitter/X iOS silently drops them.
-  // Skip auto-navigation there; callers must pair with a user-tap UI
-  // (e.g. EiabEscapeDialog).
+  // Best-effort automatic escape. Apps reported by needsUserGesture() drop
+  // or hang on scheme redirects without user activation — Facebook iOS 555+
+  // hangs on x-safari-* location.href (#2). Skip auto-navigation there;
+  // callers must pair with a user-tap UI (e.g. EiabEscapeDialog).
   if (needsUserGesture(userAgent)) {
     return
   }
