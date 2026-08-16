@@ -252,13 +252,6 @@ export function getEscapeUrl(
       return `instagram://extbrowser/?url=${encodeURIComponent(url)}`
     }
 
-    // Twitter/X iOS swallows x-safari-* (field-tested). Return the https URL
-    // so callers can try a new-window navigation instead. Whether X forwards
-    // that to the iOS default browser is untested.
-    if (TWITTER_REGEX.test(ua)) {
-      return url
-    }
-
     return (
       replaceScheme(url, "https://", "x-safari-https://") ??
       replaceScheme(url, "http://", "x-safari-http://")
@@ -428,42 +421,50 @@ function reportEscape(method: string, detail: string): void {
   }
 }
 
+function pageUrlFromEscape(url: string): string {
+  if (url.startsWith("x-safari-https://")) {
+    return `https://${url.slice("x-safari-https://".length)}`
+  }
+  if (url.startsWith("x-safari-http://")) {
+    return `http://${url.slice("x-safari-http://".length)}`
+  }
+  return url
+}
+
+function loadSchemeIframe(schemeUrl: string, label: string): void {
+  const iframe = document.createElement("iframe")
+  iframe.setAttribute("hidden", "")
+  iframe.src = schemeUrl
+  document.body.appendChild(iframe)
+  reportEscape(label, "iframe")
+  window.setTimeout(() => iframe.remove(), 2000)
+}
+
 export function openInNewWindow(url: string): void {
   if (typeof window === "undefined") {
     return
   }
 
-  try {
-    const popup = window.open(url, "_blank")
-    reportEscape("window.open", popup ? "handle" : "null")
-  } catch (error) {
-    reportEscape("window.open", `throw ${error}`)
-  }
+  const pageUrl = pageUrlFromEscape(url)
+  const schemes = [
+    replaceScheme(pageUrl, "https://", "x-safari-https://") ??
+      replaceScheme(pageUrl, "http://", "x-safari-http://"),
+    `com-apple-mobilesafari-tab:${pageUrl}`,
+  ].filter((scheme): scheme is string => Boolean(scheme))
 
-  try {
-    const anchor = document.createElement("a")
-    anchor.href = url
-    anchor.target = "_blank"
-    anchor.rel = "noopener noreferrer"
-    document.body.appendChild(anchor)
-    anchor.click()
-    anchor.remove()
-    reportEscape("a.click", "ok")
-  } catch (error) {
-    reportEscape("a.click", `throw ${error}`)
-  }
+  for (const scheme of schemes) {
+    try {
+      const popup = window.open(scheme, "_blank")
+      reportEscape(`window.open ${scheme.split(":")[0]}`, popup ? "handle" : "null")
+    } catch (error) {
+      reportEscape("window.open", `throw ${error}`)
+    }
 
-  try {
-    const form = document.createElement("form")
-    form.action = url
-    form.method = "GET"
-    form.target = "_blank"
-    document.body.appendChild(form)
-    form.submit()
-    form.remove()
-    reportEscape("form.submit", "ok")
-  } catch (error) {
-    reportEscape("form.submit", `throw ${error}`)
+    try {
+      loadSchemeIframe(scheme, `iframe ${scheme.split(":")[0]}`)
+    } catch (error) {
+      reportEscape("iframe", `throw ${error}`)
+    }
   }
 }
 
