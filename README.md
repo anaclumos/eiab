@@ -70,17 +70,19 @@ export default function Layout({ children }) {
 ### Core (`eiab`)
 
 - `isInAppBrowser(userAgent?: string): boolean` -- Returns `true` if the UA matches in-app browser patterns.
-- `needsUserGesture(userAgent?: string): boolean` -- Returns `true` when automatic redirects are dropped/hang and a real user tap is required (Meta iOS).
-- `getEscapeUrl(currentUrl?, userAgent?): string | null` -- Returns a URL/scheme to escape the in-app browser, or `null`.
+- `needsUserGesture(userAgent?: string): boolean` -- Returns `true` when automatic redirects are dropped/hang and a real user tap is required (Meta iOS, Twitter/X iOS).
+- `needsShare(userAgent?: string): boolean` -- Returns `true` when the escape is Web Share (`navigator.share`), not a scheme URL (Twitter/X iOS).
+- `shareUrl(url: string): Promise<void>` -- `navigator.share({ url })`. Call from a user tap.
+- `getEscapeUrl(currentUrl?, userAgent?): string | null` -- Returns a URL/scheme to escape the in-app browser, or `null`. On Twitter/X iOS this is the page `https` URL (for Share), not `x-safari-*`.
 - `attemptEscape(currentUrl?, userAgent?): void` -- Convenience wrapper that redirects to the escape URL if detected. No-ops when `needsUserGesture` is true — use `EiabEscapeDialog` / `EiabEscapeLink` there.
 - `getDebugInfo(): EiabDebugInfo` -- Live-environment snapshot (UA, detection, escape URL, viewport, share/clipboard). Requires a browser.
 
 ### React (`eiab/react`)
 
-- **`EscapeInAppBrowser`** -- Attempts automatic escape on mount (skipped when `needsUserGesture`). Accepts an optional `fallback` prop rendered when automatic escape fails or requires a tap (e.g. Meta iOS — see notes below).
-- **`needsUserGesture`** -- Also re-exported from `eiab/react`.
-- **`EiabEscapeDialog`** -- Bottom-sheet dialog with "Open in browser", "Copy link", and dismiss actions. Relies on native anchor navigation from a user tap.
-- **`EiabEscapeLink`** -- Inline tappable link (native `<a href>` to the scheme URL). Renders nothing when not in an in-app browser.
+- **`EscapeInAppBrowser`** -- Attempts automatic escape on mount (skipped when `needsUserGesture`). Accepts an optional `fallback` prop rendered when automatic escape fails or requires a tap (Meta iOS, Twitter/X iOS).
+- **`needsUserGesture`** / **`needsShare`** -- Also re-exported from `eiab/react`.
+- **`EiabEscapeDialog`** -- Bottom-sheet dialog with "Open in browser", "Copy link", and dismiss. Native `<a href>` on scheme escapes; a button that calls `shareUrl` on Twitter/X iOS.
+- **`EiabEscapeLink`** -- Inline tap target. Native `<a href>` to the scheme URL, or a button that calls `shareUrl` on Twitter/X iOS. Renders nothing when not in an in-app browser.
 - **`useIsInAppBrowser(userAgent?)`** -- Returns `null` during SSR, `boolean` after hydration.
 - **`useEscapeUrl(url?, userAgent?)`** -- Returns the escape URL or `null`.
 - **`EiabSuccess`** / **`EiabFailed`** -- Conditional rendering based on in-app detection.
@@ -92,7 +94,7 @@ export default function Layout({ children }) {
 |----------|--------|-------|
 | Instagram (iOS) | `instagram://extbrowser/?url=...` | Instagram's own native external-browser host (best-effort — see caveat) |
 | Threads (iOS) | `barcelona://extbrowser/?url=...` | Threads' native external-browser host (best-effort — see caveat) |
-| Twitter/X (iOS) | `x-safari-https://` | Auto-escape via WebKit hand-off (WKWebView since X 11.42) |
+| Twitter/X (iOS) | `navigator.share({ url })` | Web Share on a user tap. `x-safari-*` and `twitter://` are no-ops in X 12.17. |
 | iOS (other) | `x-safari-https://` scheme | Opens Safari when the WebView allows it |
 | Android | `intent://...#Intent;scheme=https;end` | Opens the user's default browser (includes Twitter/X) |
 | KakaoTalk | `kakaotalk://web/openExternal?url=...` | Native external browser scheme |
@@ -102,7 +104,9 @@ The KakaoTalk/LINE/Instagram/Threads rows use each app's **own native "open exte
 
 ## Twitter/X iOS
 
-Since X 11.42 the iOS in-app browser is a WKWebView (it used to be `SFSafariViewController`). `x-safari-*` is a WebKit-level hand-off, not a custom app scheme, so `attemptEscape` auto-navigates the same way it does for TikTok and other non-Meta IABs. Pair with `EiabEscapeDialog` / **Copy link** as a backup if a future WebView build swallows the scheme.
+On Twitter for iPhone 12.17 / iOS 27, `x-safari-*`, guessed `twitter://` hosts, and `_blank` https all stay in the in-app browser. The remaining platform API is [Web Share](https://developer.mozilla.org/en-US/docs/Web/API/Navigator/share), which needs a real tap (transient activation).
+
+`attemptEscape` therefore **does not auto-navigate** (`needsUserGesture` / `needsShare`). `EiabEscapeDialog` / `EiabEscapeLink` call `navigator.share({ url })` on tap so the user can open Safari from the share sheet. **Copy link** remains as a backup.
 
 On Android, Twitter/X uses the standard `intent://` escape.
 

@@ -319,11 +319,15 @@ describe("getEscapeUrl", () => {
     )
   })
 
+  it("returns the page URL for Twitter/X iOS (Web Share)", () => {
+    expect(getEscapeUrl(HTTPS_URL, TWITTER_IOS_UA)).toBe(HTTPS_URL)
+    expect(getEscapeUrl(HTTP_URL, TWITTER_IOS_UA)).toBe(HTTP_URL)
+  })
+
   it("uses x-safari-https for iOS in-app browsers", () => {
     expect(getEscapeUrl(HTTPS_URL, FACEBOOK_IOS_UA)).toBe(
       "x-safari-https://example.com/path?foo=1"
     )
-    expect(getEscapeUrl(HTTPS_URL, TWITTER_IOS_UA)).toBe(HTTPS_URL)
     expect(getEscapeUrl(HTTPS_URL, TIKTOK_IOS_UA)).toBe(
       "x-safari-https://example.com/path?foo=1"
     )
