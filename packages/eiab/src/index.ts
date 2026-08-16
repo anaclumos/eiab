@@ -148,17 +148,6 @@ function isTwitterIOS(userAgent: string): boolean {
   return isIOS(userAgent) && TWITTER_REGEX.test(userAgent)
 }
 
-function twitterIOSEscapeUrls(pageUrl: string): string[] {
-  const enc = encodeURIComponent(pageUrl)
-  return [
-    `twitter://extbrowser/?url=${enc}`,
-    `x://extbrowser/?url=${enc}`,
-    `twitter://web/openExternal?url=${enc}`,
-    `twitter://open?url=${enc}`,
-    `tweetie://extbrowser/?url=${enc}`,
-  ]
-}
-
 function addQueryParam(url: string, key: string, value: string): string {
   try {
     const parsed = new URL(url)
@@ -264,7 +253,7 @@ export function getEscapeUrl(
     }
 
     if (TWITTER_REGEX.test(ua)) {
-      return twitterIOSEscapeUrls(url)[0] ?? null
+      return url
     }
 
     return (
@@ -290,7 +279,7 @@ function isMetaIOS(userAgent: string): boolean {
  */
 export function needsUserGesture(userAgent?: string): boolean {
   const ua = userAgent ?? getDefaultUserAgent() ?? ""
-  return isMetaIOS(ua)
+  return isMetaIOS(ua) || isTwitterIOS(ua)
 }
 
 /**
@@ -409,18 +398,71 @@ function isStandaloneDisplay(nav: NavigatorDebugExtras): boolean {
   return Boolean(nav.standalone || standaloneMedia)
 }
 
-function readWebkitMessageHandlers(): string[] {
+const WEBKIT_HANDLER_PROBES = [
+  "action",
+  "bridge",
+  "browse",
+  "external",
+  "link",
+  "load",
+  "native",
+  "navigation",
+  "open",
+  "openExternal",
+  "openExternalBrowser",
+  "openInBrowser",
+  "openInSafari",
+  "openLink",
+  "openSafari",
+  "openURL",
+  "openUrl",
+  "openWebURL",
+  "safari",
+  "share",
+  "twitter",
+  "webkit",
+] as const
+
+function webkitMessageHandlersObject(): Record<string, { postMessage?: (msg: unknown) => void }> | null {
   try {
-    const webkit = (
+    const handlers = (
       window as Window & {
-        webkit?: { messageHandlers?: Record<string, unknown> }
+        webkit?: { messageHandlers?: Record<string, { postMessage?: (msg: unknown) => void }> }
       }
-    ).webkit
-    const handlers = webkit?.messageHandlers
+    ).webkit?.messageHandlers
     if (!handlers || typeof handlers !== "object") {
-      return []
+      return null
     }
-    return Object.keys(handlers)
+    return handlers
+  } catch {
+    return null
+  }
+}
+
+function readWebkitMessageHandlers(): string[] {
+  const handlers = webkitMessageHandlersObject()
+  if (!handlers) {
+    return []
+  }
+  const names = new Set<string>()
+  for (const key of Object.keys(handlers)) {
+    names.add(key)
+  }
+  try {
+    for (const key of Object.getOwnPropertyNames(handlers)) {
+      names.add(key)
+    }
+  } catch {
+    /* empty */
+  }
+  return [...names]
+}
+
+function interestingWindowKeys(): string[] {
+  try {
+    return Object.getOwnPropertyNames(window).filter((key) =>
+      /twitter|webkit|native|tfn|iosbridge|message/i.test(key)
+    )
   } catch {
     return []
   }
@@ -454,40 +496,42 @@ function pageUrlFromEscape(url: string): string {
   return url
 }
 
-function loadSchemeIframe(schemeUrl: string, label: string): void {
-  const iframe = document.createElement("iframe")
-  iframe.setAttribute("hidden", "")
-  iframe.src = schemeUrl
-  document.body.appendChild(iframe)
-  reportEscape(label, "iframe")
-  window.setTimeout(() => iframe.remove(), 2000)
-}
-
 export function openInNewWindow(url: string): void {
   if (typeof window === "undefined") {
     return
   }
 
   const pageUrl = pageUrlFromEscape(url)
-  const schemes = twitterIOSEscapeUrls(pageUrl)
+  const handlers = webkitMessageHandlersObject()
+  const listed = readWebkitMessageHandlers()
+  reportEscape("handlers", listed.join(",") || "(none)")
+  reportEscape("windowKeys", interestingWindowKeys().join(",") || "(none)")
 
-  for (const scheme of schemes) {
+  const names = new Set([...listed, ...WEBKIT_HANDLER_PROBES])
+  for (const name of names) {
     try {
-      loadSchemeIframe(scheme, `iframe ${scheme.split(":")[0]}`)
+      const handler = handlers?.[name]
+      if (!handler || typeof handler.postMessage !== "function") {
+        reportEscape("postMessage", `${name} missing`)
+        continue
+      }
+      handler.postMessage({ url: pageUrl, href: pageUrl })
+      reportEscape("postMessage", `${name} ok`)
     } catch (error) {
-      reportEscape("iframe", `throw ${error}`)
+      reportEscape("postMessage", `${name} ${error}`)
     }
   }
 
-  const primary = schemes[0]
-  if (!primary) {
-    return
-  }
-  try {
-    window.location.href = primary
-    reportEscape("location", primary)
-  } catch (error) {
-    reportEscape("location", `throw ${error}`)
+  if (typeof navigator.share === "function") {
+    void navigator
+      .share({
+        url: pageUrl,
+        title: typeof document !== "undefined" ? document.title : undefined,
+      })
+      .then(() => reportEscape("share", "ok"))
+      .catch((error) => reportEscape("share", String(error)))
+  } else {
+    reportEscape("share", "missing")
   }
 }
 

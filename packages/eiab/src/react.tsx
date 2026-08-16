@@ -161,7 +161,14 @@ export function EiabEscapeLink({
       className={className}
       data-eiab="escape-link"
       href={escapeUrl}
-      onClick={newWindow ? () => openInNewWindow(escapeUrl) : undefined}
+      onClick={
+        newWindow
+          ? (event) => {
+              event.preventDefault()
+              openInNewWindow(escapeUrl)
+            }
+          : undefined
+      }
       style={style}
     >
       {children}
@@ -287,7 +294,14 @@ export function EiabEscapeDialog({
         <a
           data-eiab="dialog-action"
           href={escapeUrl}
-          onClick={newWindow ? () => openInNewWindow(escapeUrl) : undefined}
+          onClick={
+            newWindow
+              ? (event) => {
+                  event.preventDefault()
+                  openInNewWindow(escapeUrl)
+                }
+              : undefined
+          }
           style={{
             display: "block",
             width: "100%",
