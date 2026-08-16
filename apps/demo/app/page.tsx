@@ -27,9 +27,8 @@ export default function Home() {
           <StatusBadge />
         </div>
         <p className="text-muted-foreground text-sm leading-relaxed">
-          If a sheet appears, tap <strong>Open in browser</strong> (even if
-          nothing happens), then <strong>Continue anyway</strong>, then copy the
-          report below.
+          If a sheet appears, follow it (Copy link / ••• → Open in browser),
+          then <strong>Continue anyway</strong> and copy the report below.
         </p>
       </header>
       <DebugPanel />

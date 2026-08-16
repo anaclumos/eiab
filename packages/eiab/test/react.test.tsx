@@ -295,7 +295,7 @@ describe("React Components", () => {
       expect(defaultPrevented).toBe(false)
     })
 
-    it("points Twitter/X iOS at the safari redirector", async () => {
+    it("keeps the page URL on Twitter/X iOS and does not navigate", async () => {
       await act(() => {
         render(
           <EiabEscapeLink url="https://example.com" userAgent={TWITTER_IOS_UA}>
@@ -304,11 +304,9 @@ describe("React Components", () => {
         )
       })
 
-      const link = screen.getByText("Open")
+      const link = screen.getByText("Open") as HTMLAnchorElement
       expect(link.tagName).toBe("A")
-      expect(link.getAttribute("href")).toBe(
-        `http://localhost:3000/__eiab/safari?url=${encodeURIComponent("https://example.com")}`
-      )
+      expect(link.getAttribute("href")).toBe("https://example.com")
     })
   })
 
@@ -381,6 +379,27 @@ describe("React Components", () => {
 
       expect(document.querySelector('[data-eiab="dialog-backdrop"]')).toBeNull()
       expect(dismissed).toBe(true)
+    })
+
+    it("uses copy as the primary action on Twitter/X iOS", async () => {
+      await act(() => {
+        render(
+          <EiabEscapeDialog
+            url="https://example.com"
+            userAgent={TWITTER_IOS_UA}
+          />
+        )
+      })
+
+      const action = document.querySelector('[data-eiab="dialog-action"]')
+      expect(action?.tagName).toBe("BUTTON")
+      expect(action?.textContent).toBe("Copy link")
+      expect(document.querySelector("a[data-eiab='dialog-action']")).toBeNull()
+      expect(
+        screen.getByText(
+          "X does not let websites open Safari. Tap •••, then Open in browser."
+        )
+      ).toBeTruthy()
     })
 
     it("has data-eiab attributes for styling", async () => {

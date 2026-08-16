@@ -11,13 +11,13 @@ const INSTAGRAM_REGEX = /\bInstagram/i
 // WebView — Facebook iOS 555+ is the known hang case (#2).
 const META_IOS_REGEX =
   /\b(?:FBAN|FBIOS|FB_IAB|FBAV|Facebook|Instagram|Barcelona|IABMV\/)/i
-// Twitter/X iOS IAB. Field-tested Twitter for iPhone 12.17 / iOS 27: the
-// WebView swallows x-safari-* assigned from the page, twitter:// hosts,
-// _blank https, and the user rejected Web Share. Next path: same-origin
-// tap to /__eiab/safari, which 302s to x-safari-* (HTTP redirect, not JS).
+// Twitter/X iOS IAB. Independent matrix (inappdebugger / shalanah, updated
+// 2026-03-07): Safari scheme ❌, browser scheme ❌. Field-tested on Twitter
+// for iPhone 12.17 / iOS 27: x-safari-*, twitter:// hosts, _blank https,
+// and HTTP 302s to x-safari-* stay in-app (302 reloads). shortcuts://
+// x-error broke on iOS 18.1+ (inapp-debugger#8). Web Share opens a sheet
+// (rejected). There is no JS/HTTP navigation that opens the default browser.
 const TWITTER_REGEX = /\bTwitter/i
-
-export const EIAB_SAFARI_REDIRECT_PATH = "/__eiab/safari"
 
 // Supported apps detection patterns (based on inapp-spy research + community reports)
 const INAPP_PATTERNS = [
@@ -180,17 +180,6 @@ export function toXSafariUrl(url: string): string | null {
   )
 }
 
-function twitterSafariRedirectUrl(pageUrl: string): string {
-  try {
-    if (typeof location !== "undefined" && location.origin) {
-      return `${location.origin}${EIAB_SAFARI_REDIRECT_PATH}?url=${encodeURIComponent(pageUrl)}`
-    }
-  } catch {
-    /* empty */
-  }
-  return toXSafariUrl(pageUrl) ?? pageUrl
-}
-
 function toAndroidIntent(url: string): string | null {
   try {
     const parsed = new URL(url)
@@ -273,7 +262,9 @@ export function getEscapeUrl(
     }
 
     if (TWITTER_REGEX.test(ua)) {
-      return twitterSafariRedirectUrl(url)
+      // Not a navigable escape. Returned so copy / debug have the page URL.
+      // Pair with needsManualEscape() — do not assign this to location or <a>.
+      return url
     }
 
     return toXSafariUrl(url)
@@ -291,12 +282,22 @@ function isMetaIOS(userAgent: string): boolean {
  * hang the host WebView, so a real user tap is required instead.
  *
  * Meta iOS: Facebook 555+ hangs on x-safari-* location.href (#2); IG/Threads
- * native schemes need a tap. Twitter/X iOS: JS scheme assignment is a no-op;
- * the tap must be a same-origin navigation to `/__eiab/safari` (host route).
+ * native schemes need a tap. Twitter/X iOS: every navigation stays in-app.
  */
 export function needsUserGesture(userAgent?: string): boolean {
   const ua = userAgent ?? getDefaultUserAgent() ?? ""
   return isMetaIOS(ua) || isTwitterIOS(ua)
+}
+
+/**
+ * Twitter/X iOS: do not navigate. `x-safari-*`, custom hosts, `_blank`,
+ * HTTP 302s to `x-safari-*`, and Shortcuts `x-error` (dead on iOS 18.1+)
+ * all reload or no-op inside X. Use copy + the host app chrome
+ * (••• → Open in browser) or X Settings → Display → Use in-app browser.
+ */
+export function needsManualEscape(userAgent?: string): boolean {
+  const ua = userAgent ?? getDefaultUserAgent() ?? ""
+  return isTwitterIOS(ua)
 }
 
 export interface EiabUserAgentData {
@@ -320,6 +321,7 @@ export interface EiabDebugInfo {
   title: string
   isInAppBrowser: boolean
   needsUserGesture: boolean
+  needsManualEscape: boolean
   escapeUrl: string | null
   webkitMessageHandlers: string[]
   isIOS: boolean
@@ -432,6 +434,7 @@ export function getDebugInfo(): EiabDebugInfo {
     title: typeof document !== "undefined" ? document.title : "",
     isInAppBrowser: isInAppBrowser(),
     needsUserGesture: needsUserGesture(),
+    needsManualEscape: needsManualEscape(),
     escapeUrl: getEscapeUrl(),
     webkitMessageHandlers: readWebkitMessageHandlers(),
     isIOS: isIOS(ua),

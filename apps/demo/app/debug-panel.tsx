@@ -9,6 +9,42 @@ interface LogEntry {
   line: string
 }
 
+const EVENT_STORAGE_KEY = "eiab:debug-events:v1"
+const MAX_STORED_EVENTS = 200
+
+function loadStoredEvents(): LogEntry[] {
+  try {
+    const raw = sessionStorage.getItem(EVENT_STORAGE_KEY)
+    if (!raw) {
+      return []
+    }
+    const parsed: unknown = JSON.parse(raw)
+    if (!Array.isArray(parsed)) {
+      return []
+    }
+    return parsed.filter(
+      (entry): entry is LogEntry =>
+        typeof entry === "object" &&
+        entry !== null &&
+        typeof (entry as LogEntry).t === "number" &&
+        typeof (entry as LogEntry).line === "string"
+    )
+  } catch {
+    return []
+  }
+}
+
+function storeEvents(events: LogEntry[]): void {
+  try {
+    sessionStorage.setItem(
+      EVENT_STORAGE_KEY,
+      JSON.stringify(events.slice(-MAX_STORED_EVENTS))
+    )
+  } catch {
+    /* quota / private mode */
+  }
+}
+
 function copyButtonLabel(state: "idle" | "copied" | "select"): string {
   if (state === "copied") {
     return "Copied"
@@ -100,6 +136,7 @@ export function DebugPanel() {
       line,
     }
     eventsRef.current = [...eventsRef.current, entry]
+    storeEvents(eventsRef.current)
     setEvents(eventsRef.current)
   }, [])
 
@@ -118,6 +155,11 @@ export function DebugPanel() {
 
   useEffect(() => {
     originRef.current = performance.now()
+    const restored = loadStoredEvents()
+    if (restored.length > 0) {
+      eventsRef.current = restored
+      setEvents(restored)
+    }
 
     const stillOnPage = (ms: number) => {
       log(
@@ -128,7 +170,7 @@ export function DebugPanel() {
       window.setTimeout(() => {
         const snapshot = refreshSnapshot()
         log(
-          `mount readyState=${document.readyState} href=${location.href} inApp=${snapshot?.isInAppBrowser ?? "?"} gesture=${snapshot?.needsUserGesture ?? "?"} escape=${snapshot?.escapeUrl ?? "null"}`
+          `mount readyState=${document.readyState} href=${location.href} inApp=${snapshot?.isInAppBrowser ?? "?"} gesture=${snapshot?.needsUserGesture ?? "?"} manual=${snapshot?.needsManualEscape ?? "?"} escape=${snapshot?.escapeUrl ?? "null"} restored=${restored.length}`
         )
       }, 0),
       ...[300, 1000, 3000].map((ms) =>

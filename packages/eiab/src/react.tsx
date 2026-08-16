@@ -5,6 +5,7 @@ import {
   attemptEscape,
   getEscapeUrl,
   isInAppBrowser,
+  needsManualEscape as needsManualEscapeFromCore,
   needsUserGesture as needsUserGestureFromCore,
 } from "./index.js"
 
@@ -12,8 +13,28 @@ export function needsUserGesture(userAgent?: string): boolean {
   return needsUserGestureFromCore(userAgent)
 }
 
-// Plain <a href> so native navigation carries the tap. Twitter/X iOS href is
-// the host's `/__eiab/safari` redirector, not a JS scheme assignment.
+export function needsManualEscape(userAgent?: string): boolean {
+  return needsManualEscapeFromCore(userAgent)
+}
+
+const DEFAULT_DESCRIPTION =
+  "For the best experience, open this page in your default browser."
+const MANUAL_ESCAPE_DESCRIPTION =
+  "X does not let websites open Safari. Tap •••, then Open in browser."
+
+async function copyPageUrl(url?: string): Promise<boolean> {
+  const target =
+    url ?? (typeof window !== "undefined" ? window.location?.href : undefined)
+  if (!target) {
+    return false
+  }
+  try {
+    await navigator.clipboard.writeText(target)
+    return true
+  } catch {
+    return false
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Hooks
@@ -138,8 +159,25 @@ export function EiabEscapeLink({
     return null
   }
 
+  const manual = needsManualEscapeFromCore(userAgent)
+
   return (
-    <a className={className} data-eiab="escape-link" href={escapeUrl} style={style}>
+    <a
+      className={className}
+      data-eiab="escape-link"
+      href={escapeUrl}
+      onClick={(event) => {
+        if (!manual) {
+          return
+        }
+        // https navigation reloads inside X. Keep href for long-press copy.
+        event.preventDefault()
+        copyPageUrl(url).catch(() => {
+          /* clipboard unavailable — long-press the link */
+        })
+      }}
+      style={style}
+    >
       {children}
     </a>
   )
@@ -180,7 +218,7 @@ export interface EiabEscapeDialogProps {
 
 export function EiabEscapeDialog({
   title = "Open in browser",
-  description = "For the best experience, open this page in your default browser.",
+  description,
   action = "Open in browser",
   copy = "Copy link",
   copied = "Copied!",
@@ -200,23 +238,19 @@ export function EiabEscapeDialog({
     return null
   }
 
+  const manual = needsManualEscapeFromCore(userAgent)
+  const resolvedDescription =
+    description ?? (manual ? MANUAL_ESCAPE_DESCRIPTION : DEFAULT_DESCRIPTION)
+
   const handleDismiss = () => {
     setDismissed(true)
     onDismiss?.()
   }
 
   const handleCopy = async () => {
-    const target =
-      url ?? (typeof window !== "undefined" ? window.location?.href : undefined)
-    if (!target) {
-      return
-    }
-    try {
-      await navigator.clipboard.writeText(target)
+    if (await copyPageUrl(url)) {
       setDidCopy(true)
       setTimeout(() => setDidCopy(false), 2000)
-    } catch (_) {
-      /* clipboard unavailable */
     }
   }
 
@@ -261,7 +295,7 @@ export function EiabEscapeDialog({
             {title}
           </div>
         )}
-        {description && (
+        {resolvedDescription && (
           <div
             data-eiab="dialog-description"
             style={{
@@ -271,33 +305,50 @@ export function EiabEscapeDialog({
               lineHeight: 1.5,
             }}
           >
-            {description}
+            {resolvedDescription}
           </div>
         )}
-        <a data-eiab="dialog-action" href={escapeUrl} style={dialogActionStyle}>
-          {action}
-        </a>
-        <button
-          data-eiab="dialog-copy"
-          onClick={handleCopy}
-          style={{
-            display: "block",
-            width: "100%",
-            marginTop: "0.5rem",
-            padding: "0.625rem 1rem",
-            borderRadius: "0.75rem",
-            background: "none",
-            border: "1px solid #ddd",
-            color: "#333",
-            fontSize: "0.875rem",
-            fontWeight: 500,
-            textAlign: "center",
-            cursor: "pointer",
-          }}
-          type="button"
-        >
-          {didCopy ? copied : copy}
-        </button>
+        {manual ? (
+          <button
+            data-eiab="dialog-action"
+            onClick={handleCopy}
+            style={dialogActionStyle}
+            type="button"
+          >
+            {didCopy ? copied : copy}
+          </button>
+        ) : (
+          <>
+            <a
+              data-eiab="dialog-action"
+              href={escapeUrl}
+              style={dialogActionStyle}
+            >
+              {action}
+            </a>
+            <button
+              data-eiab="dialog-copy"
+              onClick={handleCopy}
+              style={{
+                display: "block",
+                width: "100%",
+                marginTop: "0.5rem",
+                padding: "0.625rem 1rem",
+                borderRadius: "0.75rem",
+                background: "none",
+                border: "1px solid #ddd",
+                color: "#333",
+                fontSize: "0.875rem",
+                fontWeight: 500,
+                textAlign: "center",
+                cursor: "pointer",
+              }}
+              type="button"
+            >
+              {didCopy ? copied : copy}
+            </button>
+          </>
+        )}
         <button
           data-eiab="dialog-dismiss"
           onClick={handleDismiss}
