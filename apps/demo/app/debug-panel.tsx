@@ -179,12 +179,16 @@ export function DebugPanel() {
     ]
 
     const onClick = (event: Event) => {
-      const line = describeClick(event)
-      if (!line) {
+      // Capture still sees the tap if something stops bubble. Log after
+      // React's onClick so defaultPrevented reflects preventDefault().
+      if (!describeClick(event)) {
         return
       }
-      log(line)
       window.setTimeout(() => {
+        const line = describeClick(event)
+        if (line) {
+          log(line)
+        }
         log(
           `after-click +0ms href=${location.href} visibility=${document.visibilityState}`
         )
