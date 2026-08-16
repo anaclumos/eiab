@@ -1,9 +1,21 @@
 "use client"
 
 import { type ReactNode, useEffect, useState } from "react"
-import { attemptEscape, getEscapeUrl, isInAppBrowser } from "./index.js"
+import {
+  attemptEscape,
+  getEscapeUrl,
+  isInAppBrowser,
+  needsNewWindow as needsNewWindowFromCore,
+  needsUserGesture as needsUserGestureFromCore,
+} from "./index.js"
 
-export { needsUserGesture } from "./index.js"
+export function needsUserGesture(userAgent?: string): boolean {
+  return needsUserGestureFromCore(userAgent)
+}
+
+export function needsNewWindow(userAgent?: string): boolean {
+  return needsNewWindowFromCore(userAgent)
+}
 
 // ---------------------------------------------------------------------------
 // Shared anchor styles / behavior
@@ -14,9 +26,10 @@ export { needsUserGesture } from "./index.js"
 // location.href redirects even inside React click handlers. attemptEscape
 // therefore no-ops when needsUserGesture(); these components render plain
 // <a href> so native anchor navigation carries user activation. No
-// preventDefault, no window.open -- both weaken the click's ability to
-// escape the WebView. Twitter/X iOS auto-escapes via x-safari-*; the
-// fallback still renders if that hand-off is swallowed.
+// preventDefault -- it weakens the click's ability to escape the WebView.
+// Twitter/X iOS: x-safari-* is a confirmed no-op. Try target=_blank on the
+// https URL (needsNewWindow). Whether X opens the iOS default browser is
+// untested.
 
 // ---------------------------------------------------------------------------
 // Hooks
@@ -64,8 +77,7 @@ export function EscapeInAppBrowser({
   }, [url, userAgent])
 
   // If automatic escape worked, the page navigated away and this never shows.
-  // If it failed or requires a tap (Meta iOS), render the fallback so the
-  // user can escape via native <a href> navigation.
+  // If it failed or requires a tap, render the fallback.
   if (inApp && fallback) {
     return fallback
   }
@@ -137,6 +149,7 @@ export function EiabEscapeLink({
   style,
 }: EiabEscapeLinkProps): ReactNode {
   const escapeUrl = useEscapeUrl(url, userAgent)
+  const newWindow = needsNewWindow(userAgent)
 
   if (!escapeUrl) {
     return null
@@ -147,7 +160,9 @@ export function EiabEscapeLink({
       className={className}
       data-eiab="escape-link"
       href={escapeUrl}
+      rel={newWindow ? "noopener noreferrer" : undefined}
       style={style}
+      target={newWindow ? "_blank" : undefined}
     >
       {children}
     </a>
@@ -187,6 +202,7 @@ export function EiabEscapeDialog({
 }: EiabEscapeDialogProps): ReactNode {
   const inApp = useIsInAppBrowser(userAgent)
   const escapeUrl = useEscapeUrl(url, userAgent)
+  const newWindow = needsNewWindow(userAgent)
   const [dismissed, setDismissed] = useState(false)
   const [didCopy, setDidCopy] = useState(false)
 
@@ -271,6 +287,7 @@ export function EiabEscapeDialog({
         <a
           data-eiab="dialog-action"
           href={escapeUrl}
+          rel={newWindow ? "noopener noreferrer" : undefined}
           style={{
             display: "block",
             width: "100%",
@@ -284,6 +301,7 @@ export function EiabEscapeDialog({
             textDecoration: "none",
             cursor: "pointer",
           }}
+          target={newWindow ? "_blank" : undefined}
         >
           {action}
         </a>

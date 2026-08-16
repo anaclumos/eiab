@@ -86,6 +86,7 @@ function describeClick(event: Event): string | null {
     el instanceof HTMLAnchorElement || el.hasAttribute("href")
       ? `href=${el.getAttribute("href") ?? ""}`
       : null,
+    el.hasAttribute("target") ? `target=${el.getAttribute("target")}` : null,
     `defaultPrevented=${event instanceof MouseEvent ? event.defaultPrevented : false}`,
   ]
   return parts.filter(Boolean).join(" ")

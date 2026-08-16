@@ -11,6 +11,11 @@ const INSTAGRAM_REGEX = /\bInstagram/i
 // WebView — Facebook iOS 555+ is the known hang case (#2).
 const META_IOS_REGEX =
   /\b(?:FBAN|FBIOS|FB_IAB|FBAV|Facebook|Instagram|Barcelona|IABMV\/)/i
+// Twitter/X iOS IAB. Field-tested Twitter for iPhone 12.17 / iOS 27: the
+// WebView swallows x-safari-* on location.href and on a real <a href> tap.
+// Next attempt (untested): new-window https, in case the host forwards that
+// to the iOS default browser. Do not treat that as confirmed.
+const TWITTER_REGEX = /\bTwitter/i
 
 // Supported apps detection patterns (based on inapp-spy research + community reports)
 const INAPP_PATTERNS = [
@@ -139,6 +144,10 @@ function isAndroid(userAgent: string): boolean {
   return ANDROID_REGEX.test(userAgent)
 }
 
+function isTwitterIOS(userAgent: string): boolean {
+  return isIOS(userAgent) && TWITTER_REGEX.test(userAgent)
+}
+
 function addQueryParam(url: string, key: string, value: string): string {
   try {
     const parsed = new URL(url)
@@ -243,6 +252,13 @@ export function getEscapeUrl(
       return `instagram://extbrowser/?url=${encodeURIComponent(url)}`
     }
 
+    // Twitter/X iOS swallows x-safari-* (field-tested). Return the https URL
+    // so callers can try a new-window navigation instead. Whether X forwards
+    // that to the iOS default browser is untested.
+    if (TWITTER_REGEX.test(ua)) {
+      return url
+    }
+
     return (
       replaceScheme(url, "https://", "x-safari-https://") ??
       replaceScheme(url, "http://", "x-safari-http://")
@@ -261,15 +277,23 @@ function isMetaIOS(userAgent: string): boolean {
  * hang the host WebView, so a real user tap is required instead.
  *
  * Covers Meta iOS (Facebook hang on 555+, IG/Threads/Messenger drop).
- * Twitter/X iOS is not gated: since app 11.42 it uses WKWebView, and
- * `x-safari-*` is a WebKit-level hand-off (not a custom app scheme), so
- * `attemptEscape` can auto-navigate like TikTok and other non-Meta IABs.
- * Pair Meta iOS with `EiabEscapeDialog` / `EiabEscapeLink` so the scheme
- * fires from a native `<a href>` click.
+ * Twitter/X iOS is not gated: `x-safari-*` is a no-op there, so we try
+ * a new-window https navigation instead (`needsNewWindow`).
  */
 export function needsUserGesture(userAgent?: string): boolean {
   const ua = userAgent ?? getDefaultUserAgent() ?? ""
   return isMetaIOS(ua)
+}
+
+/**
+ * Returns true when we should try `window.open` / `<a target="_blank">` on
+ * the https URL instead of a custom scheme. Today that is Twitter/X iOS,
+ * where `x-safari-*` is a confirmed no-op. A new-window hand-off to the
+ * iOS default browser is a guess — it has not been field-tested.
+ */
+export function needsNewWindow(userAgent?: string): boolean {
+  const ua = userAgent ?? getDefaultUserAgent() ?? ""
+  return isTwitterIOS(ua)
 }
 
 export interface EiabUserAgentData {
@@ -293,7 +317,10 @@ export interface EiabDebugInfo {
   title: string
   isInAppBrowser: boolean
   needsUserGesture: boolean
+  needsNewWindow: boolean
   escapeUrl: string | null
+  escapeTarget: "_blank" | null
+  webkitMessageHandlers: string[]
   isIOS: boolean
   isAndroid: boolean
   language: string
@@ -374,6 +401,35 @@ function isStandaloneDisplay(nav: NavigatorDebugExtras): boolean {
   return Boolean(nav.standalone || standaloneMedia)
 }
 
+function readWebkitMessageHandlers(): string[] {
+  try {
+    const webkit = (
+      window as Window & {
+        webkit?: { messageHandlers?: Record<string, unknown> }
+      }
+    ).webkit
+    const handlers = webkit?.messageHandlers
+    if (!handlers || typeof handlers !== "object") {
+      return []
+    }
+    return Object.keys(handlers)
+  } catch {
+    return []
+  }
+}
+
+function openInNewWindow(url: string): boolean {
+  try {
+    if (typeof window !== "undefined" && typeof window.open === "function") {
+      window.open(url, "_blank", "noopener,noreferrer")
+      return true
+    }
+  } catch {
+    /* empty */
+  }
+  return false
+}
+
 /**
  * Snapshot of the live browser environment plus eiab's detection result.
  * Intended for support / field debugging (copy-paste from a demo or overlay).
@@ -395,7 +451,10 @@ export function getDebugInfo(): EiabDebugInfo {
     title: typeof document !== "undefined" ? document.title : "",
     isInAppBrowser: isInAppBrowser(),
     needsUserGesture: needsUserGesture(),
+    needsNewWindow: needsNewWindow(),
     escapeUrl: getEscapeUrl(),
+    escapeTarget: needsNewWindow() ? "_blank" : null,
+    webkitMessageHandlers: readWebkitMessageHandlers(),
     isIOS: isIOS(ua),
     isAndroid: isAndroid(ua),
     language: nav.language ?? "",
@@ -427,22 +486,23 @@ export function getDebugInfo(): EiabDebugInfo {
 }
 
 export function attemptEscape(currentUrl?: string, userAgent?: string): void {
-  // Best-effort automatic escape. Apps reported by needsUserGesture() drop or
-  // hang on scheme redirects without user activation — Facebook iOS 555+ hangs
-  // on x-safari-* location.href (#2). Skip auto-navigation there; callers must
-  // pair with a user-tap UI (e.g. EiabEscapeDialog).
-  //
-  // Twitter/X iOS (11.42+) is a WKWebView, not SFSafariViewController.
-  // x-safari-* is dispatched below the WebView navigation delegate, so
-  // auto location.href is the same path that works for TikTok and other
-  // non-Meta IABs. Gating it made attemptEscape() a no-op — the advertised
-  // vanilla API never escaped X.
+  // Best-effort automatic escape. Apps reported by needsUserGesture() drop
+  // or hang on scheme redirects without user activation — Facebook iOS 555+
+  // hangs on x-safari-* location.href (#2). Skip auto-navigation there;
+  // callers must pair with a user-tap UI (e.g. EiabEscapeDialog).
   if (needsUserGesture(userAgent)) {
     return
   }
 
   const escapeUrl = getEscapeUrl(currentUrl, userAgent)
   if (!escapeUrl) {
+    return
+  }
+
+  // Twitter/X iOS: try a new-window https navigation. Same-window
+  // location.href to https would only reload the IAB; x-safari-* is a no-op.
+  if (needsNewWindow(userAgent)) {
+    openInNewWindow(escapeUrl)
     return
   }
 
