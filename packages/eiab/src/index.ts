@@ -148,6 +148,17 @@ function isTwitterIOS(userAgent: string): boolean {
   return isIOS(userAgent) && TWITTER_REGEX.test(userAgent)
 }
 
+function twitterIOSEscapeUrls(pageUrl: string): string[] {
+  const enc = encodeURIComponent(pageUrl)
+  return [
+    `twitter://extbrowser/?url=${enc}`,
+    `x://extbrowser/?url=${enc}`,
+    `twitter://web/openExternal?url=${enc}`,
+    `twitter://open?url=${enc}`,
+    `tweetie://extbrowser/?url=${enc}`,
+  ]
+}
+
 function addQueryParam(url: string, key: string, value: string): string {
   try {
     const parsed = new URL(url)
@@ -250,6 +261,10 @@ export function getEscapeUrl(
     }
     if (INSTAGRAM_REGEX.test(ua)) {
       return `instagram://extbrowser/?url=${encodeURIComponent(url)}`
+    }
+
+    if (TWITTER_REGEX.test(ua)) {
+      return twitterIOSEscapeUrls(url)[0] ?? null
     }
 
     return (
@@ -428,6 +443,14 @@ function pageUrlFromEscape(url: string): string {
   if (url.startsWith("x-safari-http://")) {
     return `http://${url.slice("x-safari-http://".length)}`
   }
+  try {
+    const nested = new URL(url).searchParams.get("url")
+    if (nested?.startsWith("http://") || nested?.startsWith("https://")) {
+      return nested
+    }
+  } catch {
+    /* empty */
+  }
   return url
 }
 
@@ -446,25 +469,25 @@ export function openInNewWindow(url: string): void {
   }
 
   const pageUrl = pageUrlFromEscape(url)
-  const schemes = [
-    replaceScheme(pageUrl, "https://", "x-safari-https://") ??
-      replaceScheme(pageUrl, "http://", "x-safari-http://"),
-    `com-apple-mobilesafari-tab:${pageUrl}`,
-  ].filter((scheme): scheme is string => Boolean(scheme))
+  const schemes = twitterIOSEscapeUrls(pageUrl)
 
   for (const scheme of schemes) {
-    try {
-      const popup = window.open(scheme, "_blank")
-      reportEscape(`window.open ${scheme.split(":")[0]}`, popup ? "handle" : "null")
-    } catch (error) {
-      reportEscape("window.open", `throw ${error}`)
-    }
-
     try {
       loadSchemeIframe(scheme, `iframe ${scheme.split(":")[0]}`)
     } catch (error) {
       reportEscape("iframe", `throw ${error}`)
     }
+  }
+
+  const primary = schemes[0]
+  if (!primary) {
+    return
+  }
+  try {
+    window.location.href = primary
+    reportEscape("location", primary)
+  } catch (error) {
+    reportEscape("location", `throw ${error}`)
   }
 }
 
