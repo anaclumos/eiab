@@ -354,6 +354,22 @@ describe("React Components", () => {
       expect(screen.getByText("Open in Safari")).toBeTruthy()
     })
 
+    it("hides the description when it is explicitly null", async () => {
+      await act(() => {
+        render(
+          <EiabEscapeDialog
+            description={null}
+            url="https://example.com"
+            userAgent={INSTAGRAM_IOS_UA}
+          />
+        )
+      })
+
+      expect(
+        document.querySelector('[data-eiab="dialog-description"]')
+      ).toBeNull()
+    })
+
     it("dismisses when Continue anyway is clicked", async () => {
       globalThis.location = { href: "https://example.com" } as any
       let dismissed = false

@@ -239,8 +239,12 @@ export function EiabEscapeDialog({
   }
 
   const manual = needsManualEscapeFromCore(userAgent)
-  const resolvedDescription =
-    description ?? (manual ? MANUAL_ESCAPE_DESCRIPTION : DEFAULT_DESCRIPTION)
+  let resolvedDescription = description
+  if (description === undefined) {
+    resolvedDescription = manual
+      ? MANUAL_ESCAPE_DESCRIPTION
+      : DEFAULT_DESCRIPTION
+  }
 
   const handleDismiss = () => {
     setDismissed(true)
