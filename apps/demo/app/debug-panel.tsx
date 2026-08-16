@@ -23,8 +23,23 @@ function nowIso(): string {
   return new Date().toISOString()
 }
 
+function deployMeta(): { commit: string; ref: string } {
+  return {
+    commit: process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ?? "",
+    ref: process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_REF ?? "",
+  }
+}
+
 function formatReport(info: EiabDebugInfo | null, events: LogEntry[]): string {
-  const lines = ["=== eiab debug report ===", `copiedAt: ${nowIso()}`, ""]
+  const { commit, ref } = deployMeta()
+  const lines = ["=== eiab debug report ===", `copiedAt: ${nowIso()}`]
+  if (commit) {
+    lines.push(`commit: ${commit}`)
+  }
+  if (ref) {
+    lines.push(`ref: ${ref}`)
+  }
+  lines.push("")
 
   if (info) {
     lines.push(JSON.stringify(info, null, 2), "")

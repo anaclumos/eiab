@@ -1,6 +1,5 @@
 "use client"
 
-import { EIAB_BUILD_ID } from "eiab"
 import { useIsInAppBrowser } from "eiab/react"
 import { Badge } from "@/components/ui/badge"
 import { DebugPanel } from "./debug-panel"
@@ -32,7 +31,6 @@ export default function Home() {
           nothing happens), then <strong>Continue anyway</strong>, then copy the
           report below.
         </p>
-        <p className="font-mono text-muted-foreground text-xs">{EIAB_BUILD_ID}</p>
       </header>
       <DebugPanel />
     </main>

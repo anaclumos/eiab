@@ -17,9 +17,6 @@ const META_IOS_REGEX =
 // to the iOS default browser. Do not treat that as confirmed.
 const TWITTER_REGEX = /\bTwitter/i
 
-/** Bumped when the field-test escape path changes so preview reports identify the deploy. */
-export const EIAB_BUILD_ID = "20260816-twitter-share-bridge"
-
 // Supported apps detection patterns (based on inapp-spy research + community reports)
 const INAPP_PATTERNS = [
   // Generic WebView indicators
@@ -311,7 +308,6 @@ export interface EiabConnectionInfo {
 }
 
 export interface EiabDebugInfo {
-  buildId: string
   href: string
   userAgent: string
   referrer: string
@@ -555,7 +551,6 @@ export function getDebugInfo(): EiabDebugInfo {
   const win = window as Window & { Telegram?: { WebApp?: unknown } }
 
   return {
-    buildId: EIAB_BUILD_ID,
     href: typeof location !== "undefined" ? location.href : "",
     userAgent: ua,
     referrer: typeof document !== "undefined" ? document.referrer : "",
