@@ -204,7 +204,7 @@ describe("React Components", () => {
       expect(screen.queryByTestId("fallback-ui")).toBeNull()
     })
 
-    it("keeps the page put and shows fallback for Twitter/X iOS", async () => {
+    it("auto-escapes Twitter/X iOS via x-safari and still shows fallback", async () => {
       const originalHref = "https://example.com/page"
       const mockLocation = { href: originalHref }
       ;(globalThis as any).window = { location: mockLocation }
@@ -220,7 +220,7 @@ describe("React Components", () => {
       })
 
       await new Promise((r) => setTimeout(r, 50))
-      expect(mockLocation.href).toBe(originalHref)
+      expect(mockLocation.href).toBe("x-safari-https://example.com/page")
       expect(screen.getByTestId("fallback-ui")).toBeTruthy()
     })
   })

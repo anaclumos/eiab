@@ -9,13 +9,14 @@ export { needsUserGesture } from "./index.js"
 // Shared anchor styles / behavior
 // ---------------------------------------------------------------------------
 //
-// Meta iOS WKWebViews (Instagram, Facebook, Messenger, Threads) and Twitter/X
-// iOS drop — and on Facebook iOS 555+, hang on — programmatic
-// window.open(x-safari-...) and location.href redirects even inside React
-// click handlers. attemptEscape therefore no-ops when needsUserGesture();
-// these components render plain <a href> so native anchor navigation carries
-// user activation. No preventDefault, no window.open -- both weaken the
-// click's ability to escape the WebView.
+// Meta iOS WKWebViews (Instagram, Facebook, Messenger, Threads) drop — and on
+// Facebook iOS 555+, hang on — programmatic window.open(x-safari-...) and
+// location.href redirects even inside React click handlers. attemptEscape
+// therefore no-ops when needsUserGesture(); these components render plain
+// <a href> so native anchor navigation carries user activation. No
+// preventDefault, no window.open -- both weaken the click's ability to
+// escape the WebView. Twitter/X iOS auto-escapes via x-safari-*; the
+// fallback still renders if that hand-off is swallowed.
 
 // ---------------------------------------------------------------------------
 // Hooks
@@ -63,8 +64,8 @@ export function EscapeInAppBrowser({
   }, [url, userAgent])
 
   // If automatic escape worked, the page navigated away and this never shows.
-  // If it failed or requires a tap (Meta iOS, Twitter/X iOS), render the
-  // fallback so the user can escape via native <a href> navigation.
+  // If it failed or requires a tap (Meta iOS), render the fallback so the
+  // user can escape via native <a href> navigation.
   if (inApp && fallback) {
     return fallback
   }

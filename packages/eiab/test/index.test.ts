@@ -377,15 +377,15 @@ describe("getEscapeUrl", () => {
 })
 
 describe("needsUserGesture", () => {
-  it("is true for Meta iOS and Twitter/X iOS", () => {
+  it("is true for Meta iOS", () => {
     expect(needsUserGesture(FACEBOOK_IOS_UA)).toBe(true)
     expect(needsUserGesture(INSTAGRAM_IOS_UA)).toBe(true)
     expect(needsUserGesture(THREADS_IOS_UA)).toBe(true)
     expect(needsUserGesture(MESSENGER_IOS_UA)).toBe(true)
-    expect(needsUserGesture(TWITTER_IOS_UA)).toBe(true)
   })
 
-  it("is false for Twitter/X on Android and other non-gated apps", () => {
+  it("is false for Twitter/X and other non-gated apps", () => {
+    expect(needsUserGesture(TWITTER_IOS_UA)).toBe(false)
     expect(needsUserGesture(TWITTER_ANDROID_UA)).toBe(false)
     expect(needsUserGesture(FACEBOOK_ANDROID_UA)).toBe(false)
     expect(needsUserGesture(TIKTOK_IOS_UA)).toBe(false)
@@ -440,7 +440,7 @@ describe("attemptEscape", () => {
     ;(globalThis as any).window = originalWindow
   })
 
-  it("skips auto-redirect for Twitter/X iOS (gesture required)", () => {
+  it("auto-redirects Twitter/X iOS via x-safari", () => {
     const stubLocation = { href: HTTPS_URL }
     const originalWindow = globalThis.window
     ;(globalThis as any).window = {
@@ -448,7 +448,7 @@ describe("attemptEscape", () => {
     }
 
     attemptEscape(HTTPS_URL, TWITTER_IOS_UA)
-    expect(stubLocation.href).toBe(HTTPS_URL)
+    expect(stubLocation.href).toBe("x-safari-https://example.com/path?foo=1")
 
     ;(globalThis as any).window = originalWindow
   })

@@ -541,6 +541,12 @@ function EscapeStrategiesDemo() {
         "Threads' native external-browser scheme (best-effort; pair with the manual fallback)",
     },
     {
+      platform: "Twitter/X (iOS)",
+      method: "x-safari-https://...",
+      description:
+        "Auto-escape via WebKit hand-off (X 11.42+ WKWebView, same path as other non-Meta IABs)",
+    },
+    {
       platform: "iOS (Generic)",
       method: "x-safari-https://...",
       description: "Opens Safari when the WebView allows it",
@@ -602,7 +608,7 @@ function EscapeUIDemo() {
         <CardTitle>Escape UI Components</CardTitle>
         <CardDescription>
           User-gesture-based escape for apps that block automatic redirects
-          (Instagram, Facebook, Twitter/X)
+          (Instagram, Facebook)
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -650,9 +656,8 @@ function EscapeUIDemo() {
         </div>
 
         <div className="rounded-md bg-amber-500/10 p-3 text-[10px] text-amber-700 dark:text-amber-400">
-          Twitter/X iOS drops JS-initiated <code>x-safari-https://</code>{" "}
-          redirects — auto-escape is skipped so these tap UIs can fire the
-          scheme. Meta iOS apps (Instagram v417+, Facebook 555+) also filter{" "}
+          Twitter/X iOS auto-escapes via <code>x-safari-https://</code> (WKWebView
+          since X 11.42). Meta iOS apps (Instagram v417+, Facebook 555+) filter{" "}
           <code>x-safari-https://</code> — Facebook can hang on auto-redirect,
           so <code>attemptEscape()</code> skips Meta iOS via{" "}
           <code>needsUserGesture</code>. For Instagram/Threads these components
