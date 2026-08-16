@@ -12,9 +12,8 @@ const INSTAGRAM_REGEX = /\bInstagram/i
 const META_IOS_REGEX =
   /\b(?:FBAN|FBIOS|FB_IAB|FBAV|Facebook|Instagram|Barcelona|IABMV\/)/i
 // Twitter/X iOS IAB. Field-tested Twitter for iPhone 12.17 / iOS 27: the
-// WebView swallows x-safari-* on location.href and on a real <a href> tap.
-// Next attempt (untested): new-window https, in case the host forwards that
-// to the iOS default browser. Do not treat that as confirmed.
+// WebView swallows x-safari-* and custom twitter:// hosts. The remaining
+// platform hand-off is Web Share (`navigator.share`) on a user tap.
 const TWITTER_REGEX = /\bTwitter/i
 
 // Supported apps detection patterns (based on inapp-spy research + community reports)
@@ -273,9 +272,9 @@ function isMetaIOS(userAgent: string): boolean {
  * Returns true when automatic (JS-initiated) escape redirects are dropped or
  * hang the host WebView, so a real user tap is required instead.
  *
- * Covers Meta iOS (Facebook hang on 555+, IG/Threads/Messenger drop).
- * Twitter/X iOS is not gated: `x-safari-*` is a no-op there, so we try
- * a new-window https navigation instead (`needsNewWindow`).
+ * Meta iOS: Facebook 555+ hangs on x-safari-* location.href (#2); IG/Threads
+ * native schemes need a tap. Twitter/X iOS: x-safari-* and twitter:// are
+ * no-ops; use `shareUrl` from a tap (`needsShare`).
  */
 export function needsUserGesture(userAgent?: string): boolean {
   const ua = userAgent ?? getDefaultUserAgent() ?? ""
@@ -283,14 +282,17 @@ export function needsUserGesture(userAgent?: string): boolean {
 }
 
 /**
- * Returns true when we should try `window.open` / `<a target="_blank">` on
- * the https URL instead of a custom scheme. Today that is Twitter/X iOS,
- * where `x-safari-*` is a confirmed no-op. A new-window hand-off to the
- * iOS default browser is a guess — it has not been field-tested.
+ * Twitter/X iOS: schemes and `_blank` stay in the IAB. The platform API is
+ * `navigator.share` (Web Share), which requires transient activation.
+ * https://developer.mozilla.org/en-US/docs/Web/API/Navigator/share
  */
-export function needsNewWindow(userAgent?: string): boolean {
+export function needsShare(userAgent?: string): boolean {
   const ua = userAgent ?? getDefaultUserAgent() ?? ""
   return isTwitterIOS(ua)
+}
+
+export function shareUrl(url: string): Promise<void> {
+  return navigator.share({ url })
 }
 
 export interface EiabUserAgentData {
@@ -314,9 +316,8 @@ export interface EiabDebugInfo {
   title: string
   isInAppBrowser: boolean
   needsUserGesture: boolean
-  needsNewWindow: boolean
+  needsShare: boolean
   escapeUrl: string | null
-  escapeTarget: "_blank" | null
   webkitMessageHandlers: string[]
   isIOS: boolean
   isAndroid: boolean
@@ -360,7 +361,6 @@ interface NavigatorDebugExtras {
     rtt?: number
     saveData?: boolean
   }
-  share?: (...args: unknown[]) => Promise<unknown>
 }
 
 function readUserAgentData(
@@ -398,142 +398,14 @@ function isStandaloneDisplay(nav: NavigatorDebugExtras): boolean {
   return Boolean(nav.standalone || standaloneMedia)
 }
 
-const WEBKIT_HANDLER_PROBES = [
-  "action",
-  "bridge",
-  "browse",
-  "external",
-  "link",
-  "load",
-  "native",
-  "navigation",
-  "open",
-  "openExternal",
-  "openExternalBrowser",
-  "openInBrowser",
-  "openInSafari",
-  "openLink",
-  "openSafari",
-  "openURL",
-  "openUrl",
-  "openWebURL",
-  "safari",
-  "share",
-  "twitter",
-  "webkit",
-] as const
-
-function webkitMessageHandlersObject(): Record<string, { postMessage?: (msg: unknown) => void }> | null {
-  try {
-    const handlers = (
-      window as Window & {
-        webkit?: { messageHandlers?: Record<string, { postMessage?: (msg: unknown) => void }> }
-      }
-    ).webkit?.messageHandlers
-    if (!handlers || typeof handlers !== "object") {
-      return null
-    }
-    return handlers
-  } catch {
-    return null
-  }
-}
-
 function readWebkitMessageHandlers(): string[] {
-  const handlers = webkitMessageHandlersObject()
+  const handlers = (
+    window as Window & { webkit?: { messageHandlers?: object } }
+  ).webkit?.messageHandlers
   if (!handlers) {
     return []
   }
-  const names = new Set<string>()
-  for (const key of Object.keys(handlers)) {
-    names.add(key)
-  }
-  try {
-    for (const key of Object.getOwnPropertyNames(handlers)) {
-      names.add(key)
-    }
-  } catch {
-    /* empty */
-  }
-  return [...names]
-}
-
-function interestingWindowKeys(): string[] {
-  try {
-    return Object.getOwnPropertyNames(window).filter((key) =>
-      /twitter|webkit|native|tfn|iosbridge|message/i.test(key)
-    )
-  } catch {
-    return []
-  }
-}
-
-function reportEscape(method: string, detail: string): void {
-  try {
-    window.dispatchEvent(
-      new CustomEvent("eiab-escape", { detail: `${method} ${detail}` })
-    )
-  } catch {
-    /* empty */
-  }
-}
-
-function pageUrlFromEscape(url: string): string {
-  if (url.startsWith("x-safari-https://")) {
-    return `https://${url.slice("x-safari-https://".length)}`
-  }
-  if (url.startsWith("x-safari-http://")) {
-    return `http://${url.slice("x-safari-http://".length)}`
-  }
-  try {
-    const nested = new URL(url).searchParams.get("url")
-    if (nested?.startsWith("http://") || nested?.startsWith("https://")) {
-      return nested
-    }
-  } catch {
-    /* empty */
-  }
-  return url
-}
-
-export function openInNewWindow(url: string): void {
-  if (typeof window === "undefined") {
-    return
-  }
-
-  const pageUrl = pageUrlFromEscape(url)
-  const handlers = webkitMessageHandlersObject()
-  const listed = readWebkitMessageHandlers()
-  reportEscape("handlers", listed.join(",") || "(none)")
-  reportEscape("windowKeys", interestingWindowKeys().join(",") || "(none)")
-
-  const names = new Set([...listed, ...WEBKIT_HANDLER_PROBES])
-  for (const name of names) {
-    try {
-      const handler = handlers?.[name]
-      if (!handler || typeof handler.postMessage !== "function") {
-        reportEscape("postMessage", `${name} missing`)
-        continue
-      }
-      handler.postMessage({ url: pageUrl, href: pageUrl })
-      reportEscape("postMessage", `${name} ok`)
-    } catch (error) {
-      reportEscape("postMessage", `${name} ${error}`)
-    }
-  }
-
-  if (typeof navigator.share === "function") {
-    const shareData: ShareData = { url: pageUrl }
-    if (typeof document !== "undefined" && document.title) {
-      shareData.title = document.title
-    }
-    void navigator
-      .share(shareData)
-      .then(() => reportEscape("share", "ok"))
-      .catch((error) => reportEscape("share", String(error)))
-  } else {
-    reportEscape("share", "missing")
-  }
+  return Object.keys(handlers)
 }
 
 /**
@@ -557,9 +429,8 @@ export function getDebugInfo(): EiabDebugInfo {
     title: typeof document !== "undefined" ? document.title : "",
     isInAppBrowser: isInAppBrowser(),
     needsUserGesture: needsUserGesture(),
-    needsNewWindow: needsNewWindow(),
+    needsShare: needsShare(),
     escapeUrl: getEscapeUrl(),
-    escapeTarget: needsNewWindow() ? "_blank" : null,
     webkitMessageHandlers: readWebkitMessageHandlers(),
     isIOS: isIOS(ua),
     isAndroid: isAndroid(ua),
@@ -602,13 +473,6 @@ export function attemptEscape(currentUrl?: string, userAgent?: string): void {
 
   const escapeUrl = getEscapeUrl(currentUrl, userAgent)
   if (!escapeUrl) {
-    return
-  }
-
-  // Twitter/X iOS: try a new-window https navigation. Same-window
-  // location.href to https would only reload the IAB; x-safari-* is a no-op.
-  if (needsNewWindow(userAgent)) {
-    openInNewWindow(escapeUrl)
     return
   }
 

@@ -59,28 +59,6 @@ function formatReport(info: EiabDebugInfo | null, events: LogEntry[]): string {
   return lines.join("\n")
 }
 
-async function copyText(text: string): Promise<boolean> {
-  try {
-    await navigator.clipboard.writeText(text)
-    return true
-  } catch {
-    try {
-      const textarea = document.createElement("textarea")
-      textarea.value = text
-      textarea.setAttribute("readonly", "")
-      textarea.style.position = "fixed"
-      textarea.style.left = "-9999px"
-      document.body.appendChild(textarea)
-      textarea.select()
-      const ok = document.execCommand("copy")
-      document.body.removeChild(textarea)
-      return ok
-    } catch {
-      return false
-    }
-  }
-}
-
 function describeClick(event: Event): string | null {
   const target = event.target
   if (!(target instanceof Element)) {
@@ -176,10 +154,6 @@ export function DebugPanel() {
       }, 150)
     }
 
-    const onEscape = (event: Event) => {
-      const detail = (event as CustomEvent<string>).detail
-      log(`escape ${detail}`)
-    }
     const onVisibility = () => {
       log(`visibilitychange ${document.visibilityState}`)
     }
@@ -197,7 +171,6 @@ export function DebugPanel() {
     }
 
     document.addEventListener("click", onClick, true)
-    window.addEventListener("eiab-escape", onEscape)
     document.addEventListener("visibilitychange", onVisibility)
     window.addEventListener("pageshow", onPageShow)
     window.addEventListener("pagehide", onPageHide)
@@ -209,7 +182,6 @@ export function DebugPanel() {
         window.clearTimeout(id)
       }
       document.removeEventListener("click", onClick, true)
-      window.removeEventListener("eiab-escape", onEscape)
       document.removeEventListener("visibilitychange", onVisibility)
       window.removeEventListener("pageshow", onPageShow)
       window.removeEventListener("pagehide", onPageHide)
@@ -221,13 +193,14 @@ export function DebugPanel() {
   const handleCopy = async () => {
     const snapshot = refreshSnapshot()
     const report = formatReport(snapshot, eventsRef.current)
-    const ok = await copyText(report)
-    setCopyState(ok ? "copied" : "select")
-    log(
-      ok
-        ? "copied report to clipboard"
-        : "clipboard failed — select the report below"
-    )
+    try {
+      await navigator.clipboard.writeText(report)
+      setCopyState("copied")
+      log("copied report to clipboard")
+    } catch {
+      setCopyState("select")
+      log("clipboard failed — select the report below")
+    }
     window.setTimeout(() => setCopyState("idle"), 2500)
   }
 

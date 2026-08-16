@@ -5,32 +5,21 @@ import {
   attemptEscape,
   getEscapeUrl,
   isInAppBrowser,
-  needsNewWindow as needsNewWindowFromCore,
+  needsShare as needsShareFromCore,
   needsUserGesture as needsUserGestureFromCore,
-  openInNewWindow,
+  shareUrl,
 } from "./index.js"
 
 export function needsUserGesture(userAgent?: string): boolean {
   return needsUserGestureFromCore(userAgent)
 }
 
-export function needsNewWindow(userAgent?: string): boolean {
-  return needsNewWindowFromCore(userAgent)
+export function needsShare(userAgent?: string): boolean {
+  return needsShareFromCore(userAgent)
 }
 
-// ---------------------------------------------------------------------------
-// Shared anchor styles / behavior
-// ---------------------------------------------------------------------------
-//
-// Meta iOS WKWebViews (Instagram, Facebook, Messenger, Threads) drop — and on
-// Facebook iOS 555+, hang on — programmatic window.open(x-safari-...) and
-// location.href redirects even inside React click handlers. attemptEscape
-// therefore no-ops when needsUserGesture(); these components render plain
-// <a href> so native anchor navigation carries user activation. No
-// preventDefault -- it weakens the click's ability to escape the WebView.
-// Twitter/X iOS: x-safari-* is a confirmed no-op. Try target=_blank on the
-// https URL (needsNewWindow). Whether X opens the iOS default browser is
-// untested.
+// Meta iOS: plain <a href> so native navigation carries the tap.
+// Twitter/X iOS: Web Share on the tap (`navigator.share`).
 
 // ---------------------------------------------------------------------------
 // Hooks
@@ -150,27 +139,38 @@ export function EiabEscapeLink({
   style,
 }: EiabEscapeLinkProps): ReactNode {
   const escapeUrl = useEscapeUrl(url, userAgent)
-  const newWindow = needsNewWindow(userAgent)
+  const share = needsShare(userAgent)
 
   if (!escapeUrl) {
     return null
   }
 
+  if (share) {
+    return (
+      <button
+        className={className}
+        data-eiab="escape-link"
+        onClick={() => {
+          void shareUrl(escapeUrl)
+        }}
+        style={{
+          background: "none",
+          border: "none",
+          color: "inherit",
+          cursor: "pointer",
+          font: "inherit",
+          padding: 0,
+          ...style,
+        }}
+        type="button"
+      >
+        {children}
+      </button>
+    )
+  }
+
   return (
-    <a
-      className={className}
-      data-eiab="escape-link"
-      href={escapeUrl}
-      onClick={
-        newWindow
-          ? (event) => {
-              event.preventDefault()
-              openInNewWindow(escapeUrl)
-            }
-          : undefined
-      }
-      style={style}
-    >
+    <a className={className} data-eiab="escape-link" href={escapeUrl} style={style}>
       {children}
     </a>
   )
@@ -179,6 +179,21 @@ export function EiabEscapeLink({
 // ---------------------------------------------------------------------------
 // EiabEscapeDialog - bottom-sheet style dialog with escape button
 // ---------------------------------------------------------------------------
+
+const dialogActionStyle = {
+  display: "block",
+  width: "100%",
+  padding: "0.75rem 1rem",
+  borderRadius: "0.75rem",
+  backgroundColor: "#111",
+  color: "#fff",
+  fontSize: "0.9375rem",
+  fontWeight: 500,
+  textAlign: "center",
+  textDecoration: "none",
+  cursor: "pointer",
+  border: "none",
+} as const
 
 export interface EiabEscapeDialogProps {
   title?: ReactNode
@@ -209,7 +224,7 @@ export function EiabEscapeDialog({
 }: EiabEscapeDialogProps): ReactNode {
   const inApp = useIsInAppBrowser(userAgent)
   const escapeUrl = useEscapeUrl(url, userAgent)
-  const newWindow = needsNewWindow(userAgent)
+  const share = needsShare(userAgent)
   const [dismissed, setDismissed] = useState(false)
   const [didCopy, setDidCopy] = useState(false)
 
@@ -291,33 +306,22 @@ export function EiabEscapeDialog({
             {description}
           </div>
         )}
-        <a
-          data-eiab="dialog-action"
-          href={escapeUrl}
-          onClick={
-            newWindow
-              ? (event) => {
-                  event.preventDefault()
-                  openInNewWindow(escapeUrl)
-                }
-              : undefined
-          }
-          style={{
-            display: "block",
-            width: "100%",
-            padding: "0.75rem 1rem",
-            borderRadius: "0.75rem",
-            backgroundColor: "#111",
-            color: "#fff",
-            fontSize: "0.9375rem",
-            fontWeight: 500,
-            textAlign: "center",
-            textDecoration: "none",
-            cursor: "pointer",
-          }}
-        >
-          {action}
-        </a>
+        {share ? (
+          <button
+            data-eiab="dialog-action"
+            onClick={() => {
+              void shareUrl(escapeUrl)
+            }}
+            style={dialogActionStyle}
+            type="button"
+          >
+            {action}
+          </button>
+        ) : (
+          <a data-eiab="dialog-action" href={escapeUrl} style={dialogActionStyle}>
+            {action}
+          </a>
+        )}
         <button
           data-eiab="dialog-copy"
           onClick={handleCopy}

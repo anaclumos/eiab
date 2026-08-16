@@ -5,6 +5,7 @@ import {
   getDebugInfo,
   getEscapeUrl,
   isInAppBrowser,
+  needsShare,
   needsUserGesture,
 } from "../src/index"
 
@@ -322,9 +323,7 @@ describe("getEscapeUrl", () => {
     expect(getEscapeUrl(HTTPS_URL, FACEBOOK_IOS_UA)).toBe(
       "x-safari-https://example.com/path?foo=1"
     )
-    expect(getEscapeUrl(HTTPS_URL, TWITTER_IOS_UA)).toBe(
-      "x-safari-https://example.com/path?foo=1"
-    )
+    expect(getEscapeUrl(HTTPS_URL, TWITTER_IOS_UA)).toBe(HTTPS_URL)
     expect(getEscapeUrl(HTTPS_URL, TIKTOK_IOS_UA)).toBe(
       "x-safari-https://example.com/path?foo=1"
     )
@@ -349,7 +348,7 @@ describe("getEscapeUrl", () => {
   })
 
   it("uses x-safari-http for iOS in-app browsers", () => {
-    expect(getEscapeUrl(HTTP_URL, TWITTER_IOS_UA)).toBe(
+    expect(getEscapeUrl(HTTP_URL, TIKTOK_IOS_UA)).toBe(
       "x-safari-http://example.com/path?foo=1"
     )
   })
@@ -386,12 +385,24 @@ describe("needsUserGesture", () => {
     expect(needsUserGesture(MESSENGER_IOS_UA)).toBe(true)
   })
 
-  it("is false for Twitter/X and other non-gated apps", () => {
-    expect(needsUserGesture(TWITTER_IOS_UA)).toBe(false)
+  it("is true for Twitter/X iOS (Web Share needs a tap)", () => {
+    expect(needsUserGesture(TWITTER_IOS_UA)).toBe(true)
+  })
+
+  it("is false for other non-gated apps", () => {
     expect(needsUserGesture(TWITTER_ANDROID_UA)).toBe(false)
     expect(needsUserGesture(FACEBOOK_ANDROID_UA)).toBe(false)
     expect(needsUserGesture(TIKTOK_IOS_UA)).toBe(false)
     expect(needsUserGesture(GENERIC_INAPP_UA)).toBe(false)
+  })
+})
+
+describe("needsShare", () => {
+  it("is true only for Twitter/X iOS", () => {
+    expect(needsShare(TWITTER_IOS_UA)).toBe(true)
+    expect(needsShare(TWITTER_ANDROID_UA)).toBe(false)
+    expect(needsShare(FACEBOOK_IOS_UA)).toBe(false)
+    expect(needsShare(TIKTOK_IOS_UA)).toBe(false)
   })
 })
 
@@ -442,7 +453,7 @@ describe("attemptEscape", () => {
     ;(globalThis as any).window = originalWindow
   })
 
-  it("auto-redirects Twitter/X iOS via x-safari", () => {
+  it("does not auto-navigate on Twitter/X iOS", () => {
     const stubLocation = { href: HTTPS_URL }
     const originalWindow = globalThis.window
     ;(globalThis as any).window = {
@@ -450,7 +461,7 @@ describe("attemptEscape", () => {
     }
 
     attemptEscape(HTTPS_URL, TWITTER_IOS_UA)
-    expect(stubLocation.href).toBe("x-safari-https://example.com/path?foo=1")
+    expect(stubLocation.href).toBe(HTTPS_URL)
 
     ;(globalThis as any).window = originalWindow
   })
@@ -569,8 +580,9 @@ describe("getDebugInfo", () => {
     expect(info.userAgent).toBe(TWITTER_IOS_UA)
     expect(info.referrer).toBe("https://t.co/abc")
     expect(info.isInAppBrowser).toBe(true)
-    expect(info.needsUserGesture).toBe(false)
-    expect(info.escapeUrl).toBe("x-safari-https://eiab.dev/preview")
+    expect(info.needsUserGesture).toBe(true)
+    expect(info.needsShare).toBe(true)
+    expect(info.escapeUrl).toBe(href)
     expect(info.isIOS).toBe(true)
     expect(info.isAndroid).toBe(false)
     expect(info.hasClipboard).toBe(true)

@@ -204,7 +204,7 @@ describe("React Components", () => {
       expect(screen.queryByTestId("fallback-ui")).toBeNull()
     })
 
-    it("auto-escapes Twitter/X iOS via x-safari and still shows fallback", async () => {
+    it("does not auto-navigate Twitter/X iOS and still shows fallback", async () => {
       const originalHref = "https://example.com/page"
       const mockLocation = { href: originalHref }
       ;(globalThis as any).window = { location: mockLocation }
@@ -220,7 +220,7 @@ describe("React Components", () => {
       })
 
       await new Promise((r) => setTimeout(r, 50))
-      expect(mockLocation.href).toBe("x-safari-https://example.com/page")
+      expect(mockLocation.href).toBe(originalHref)
       expect(screen.getByTestId("fallback-ui")).toBeTruthy()
     })
   })
@@ -293,6 +293,35 @@ describe("React Components", () => {
 
       expect(openCalled).toBe(false)
       expect(defaultPrevented).toBe(false)
+    })
+
+    it("calls Web Share on Twitter/X iOS", async () => {
+      const share = async () => undefined
+      const calls: ShareData[] = []
+      Object.defineProperty(navigator, "share", {
+        configurable: true,
+        value: (data: ShareData) => {
+          calls.push(data)
+          return share()
+        },
+      })
+
+      await act(() => {
+        render(
+          <EiabEscapeLink url="https://example.com" userAgent={TWITTER_IOS_UA}>
+            Open
+          </EiabEscapeLink>
+        )
+      })
+
+      const button = screen.getByText("Open")
+      expect(button.tagName).toBe("BUTTON")
+
+      await act(() => {
+        button.click()
+      })
+
+      expect(calls).toEqual([{ url: "https://example.com" }])
     })
   })
 
