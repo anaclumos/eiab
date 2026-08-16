@@ -71,18 +71,18 @@ export default function Layout({ children }) {
 
 - `isInAppBrowser(userAgent?: string): boolean` -- Returns `true` if the UA matches in-app browser patterns.
 - `needsUserGesture(userAgent?: string): boolean` -- Returns `true` when automatic redirects are dropped/hang and a real user tap is required (Meta iOS, Twitter/X iOS).
-- `needsShare(userAgent?: string): boolean` -- Returns `true` when the escape is Web Share (`navigator.share`), not a scheme URL (Twitter/X iOS).
-- `shareUrl(url: string): Promise<void>` -- `navigator.share({ url })`. Call from a user tap.
-- `getEscapeUrl(currentUrl?, userAgent?): string | null` -- Returns a URL/scheme to escape the in-app browser, or `null`. On Twitter/X iOS this is the page `https` URL (for Share), not `x-safari-*`.
+- `getEscapeUrl(currentUrl?, userAgent?): string | null` -- Returns a URL/scheme to escape the in-app browser, or `null`. On Twitter/X iOS this is `{origin}/__eiab/safari?url=…` (host must serve that route).
+- `toXSafariUrl(url: string): string | null` -- Rewrites `https://` / `http://` to `x-safari-https://` / `x-safari-http://`.
+- `EIAB_SAFARI_REDIRECT_PATH` -- `"/__eiab/safari"`. Host route that 302s to `toXSafariUrl`.
 - `attemptEscape(currentUrl?, userAgent?): void` -- Convenience wrapper that redirects to the escape URL if detected. No-ops when `needsUserGesture` is true — use `EiabEscapeDialog` / `EiabEscapeLink` there.
 - `getDebugInfo(): EiabDebugInfo` -- Live-environment snapshot (UA, detection, escape URL, viewport, share/clipboard). Requires a browser.
 
 ### React (`eiab/react`)
 
 - **`EscapeInAppBrowser`** -- Attempts automatic escape on mount (skipped when `needsUserGesture`). Accepts an optional `fallback` prop rendered when automatic escape fails or requires a tap (Meta iOS, Twitter/X iOS).
-- **`needsUserGesture`** / **`needsShare`** -- Also re-exported from `eiab/react`.
-- **`EiabEscapeDialog`** -- Bottom-sheet dialog with "Open in browser", "Copy link", and dismiss. Native `<a href>` on scheme escapes; a button that calls `shareUrl` on Twitter/X iOS.
-- **`EiabEscapeLink`** -- Inline tap target. Native `<a href>` to the scheme URL, or a button that calls `shareUrl` on Twitter/X iOS. Renders nothing when not in an in-app browser.
+- **`needsUserGesture`** -- Also re-exported from `eiab/react`.
+- **`EiabEscapeDialog`** -- Bottom-sheet dialog with "Open in browser", "Copy link", and dismiss. Native `<a href>` from a user tap.
+- **`EiabEscapeLink`** -- Inline tappable link (native `<a href>` to the escape URL). Renders nothing when not in an in-app browser.
 - **`useIsInAppBrowser(userAgent?)`** -- Returns `null` during SSR, `boolean` after hydration.
 - **`useEscapeUrl(url?, userAgent?)`** -- Returns the escape URL or `null`.
 - **`EiabSuccess`** / **`EiabFailed`** -- Conditional rendering based on in-app detection.
@@ -94,7 +94,7 @@ export default function Layout({ children }) {
 |----------|--------|-------|
 | Instagram (iOS) | `instagram://extbrowser/?url=...` | Instagram's own native external-browser host (best-effort — see caveat) |
 | Threads (iOS) | `barcelona://extbrowser/?url=...` | Threads' native external-browser host (best-effort — see caveat) |
-| Twitter/X (iOS) | `navigator.share({ url })` | Web Share on a user tap. `x-safari-*` and `twitter://` are no-ops in X 12.17. |
+| Twitter/X (iOS) | `{origin}/__eiab/safari?url=…` → 302 `x-safari-*` | JS scheme assignment is a no-op; the tap is a same-origin navigation, then HTTP redirect |
 | iOS (other) | `x-safari-https://` scheme | Opens Safari when the WebView allows it |
 | Android | `intent://...#Intent;scheme=https;end` | Opens the user's default browser (includes Twitter/X) |
 | KakaoTalk | `kakaotalk://web/openExternal?url=...` | Native external browser scheme |
@@ -104,9 +104,11 @@ The KakaoTalk/LINE/Instagram/Threads rows use each app's **own native "open exte
 
 ## Twitter/X iOS
 
-On Twitter for iPhone 12.17 / iOS 27, `x-safari-*`, guessed `twitter://` hosts, and `_blank` https all stay in the in-app browser. The remaining platform API is [Web Share](https://developer.mozilla.org/en-US/docs/Web/API/Navigator/share), which needs a real tap (transient activation).
+On Twitter for iPhone 12.17 / iOS 27, assigning `x-safari-*` or `twitter://` from the page, and `_blank` https, all stay in the in-app browser. Web Share opens a share sheet (not Safari).
 
-`attemptEscape` therefore **does not auto-navigate** (`needsUserGesture` / `needsShare`). `EiabEscapeDialog` / `EiabEscapeLink` call `navigator.share({ url })` on tap so the user can open Safari from the share sheet. **Copy link** remains as a backup.
+`getEscapeUrl` therefore returns `{origin}/__eiab/safari?url=…`. The host must serve that path and 302 to `x-safari-*` (see `toXSafariUrl`). The tap is a normal same-origin navigation; the scheme change happens in the HTTP redirect, not in JavaScript.
+
+`attemptEscape` does **not** auto-navigate (`needsUserGesture`). Pair with `EiabEscapeDialog` / `EiabEscapeLink`. **Copy link** remains as a backup.
 
 On Android, Twitter/X uses the standard `intent://` escape.
 

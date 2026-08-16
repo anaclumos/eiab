@@ -5,7 +5,6 @@ import {
   getDebugInfo,
   getEscapeUrl,
   isInAppBrowser,
-  needsShare,
   needsUserGesture,
 } from "../src/index"
 
@@ -319,9 +318,13 @@ describe("getEscapeUrl", () => {
     )
   })
 
-  it("returns the page URL for Twitter/X iOS (Web Share)", () => {
-    expect(getEscapeUrl(HTTPS_URL, TWITTER_IOS_UA)).toBe(HTTPS_URL)
-    expect(getEscapeUrl(HTTP_URL, TWITTER_IOS_UA)).toBe(HTTP_URL)
+  it("returns the same-origin safari redirector for Twitter/X iOS", () => {
+    expect(getEscapeUrl(HTTPS_URL, TWITTER_IOS_UA)).toBe(
+      `http://localhost:3000/__eiab/safari?url=${encodeURIComponent(HTTPS_URL)}`
+    )
+    expect(getEscapeUrl(HTTP_URL, TWITTER_IOS_UA)).toBe(
+      `http://localhost:3000/__eiab/safari?url=${encodeURIComponent(HTTP_URL)}`
+    )
   })
 
   it("uses x-safari-https for iOS in-app browsers", () => {
@@ -389,7 +392,7 @@ describe("needsUserGesture", () => {
     expect(needsUserGesture(MESSENGER_IOS_UA)).toBe(true)
   })
 
-  it("is true for Twitter/X iOS (Web Share needs a tap)", () => {
+  it("is true for Twitter/X iOS", () => {
     expect(needsUserGesture(TWITTER_IOS_UA)).toBe(true)
   })
 
@@ -398,15 +401,6 @@ describe("needsUserGesture", () => {
     expect(needsUserGesture(FACEBOOK_ANDROID_UA)).toBe(false)
     expect(needsUserGesture(TIKTOK_IOS_UA)).toBe(false)
     expect(needsUserGesture(GENERIC_INAPP_UA)).toBe(false)
-  })
-})
-
-describe("needsShare", () => {
-  it("is true only for Twitter/X iOS", () => {
-    expect(needsShare(TWITTER_IOS_UA)).toBe(true)
-    expect(needsShare(TWITTER_ANDROID_UA)).toBe(false)
-    expect(needsShare(FACEBOOK_IOS_UA)).toBe(false)
-    expect(needsShare(TIKTOK_IOS_UA)).toBe(false)
   })
 })
 
@@ -541,7 +535,7 @@ describe("getDebugInfo", () => {
     const href = "https://eiab.dev/preview"
     Object.defineProperty(globalThis, "location", {
       configurable: true,
-      value: { href },
+      value: { href, origin: "https://eiab.dev" },
     })
     Object.defineProperty(globalThis, "navigator", {
       configurable: true,
@@ -570,7 +564,7 @@ describe("getDebugInfo", () => {
       value: { timeOrigin: 1_700_000_000_000 },
     })
     ;(globalThis as any).window = {
-      location: { href },
+      location: { href, origin: "https://eiab.dev" },
       innerWidth: 390,
       innerHeight: 844,
       screen: { width: 390, height: 844 },
@@ -585,8 +579,9 @@ describe("getDebugInfo", () => {
     expect(info.referrer).toBe("https://t.co/abc")
     expect(info.isInAppBrowser).toBe(true)
     expect(info.needsUserGesture).toBe(true)
-    expect(info.needsShare).toBe(true)
-    expect(info.escapeUrl).toBe(href)
+    expect(info.escapeUrl).toBe(
+      `https://eiab.dev/__eiab/safari?url=${encodeURIComponent(href)}`
+    )
     expect(info.isIOS).toBe(true)
     expect(info.isAndroid).toBe(false)
     expect(info.hasClipboard).toBe(true)

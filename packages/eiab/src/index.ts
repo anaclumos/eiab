@@ -12,9 +12,12 @@ const INSTAGRAM_REGEX = /\bInstagram/i
 const META_IOS_REGEX =
   /\b(?:FBAN|FBIOS|FB_IAB|FBAV|Facebook|Instagram|Barcelona|IABMV\/)/i
 // Twitter/X iOS IAB. Field-tested Twitter for iPhone 12.17 / iOS 27: the
-// WebView swallows x-safari-* and custom twitter:// hosts. The remaining
-// platform hand-off is Web Share (`navigator.share`) on a user tap.
+// WebView swallows x-safari-* assigned from the page, twitter:// hosts,
+// _blank https, and the user rejected Web Share. Next path: same-origin
+// tap to /__eiab/safari, which 302s to x-safari-* (HTTP redirect, not JS).
 const TWITTER_REGEX = /\bTwitter/i
+
+export const EIAB_SAFARI_REDIRECT_PATH = "/__eiab/safari"
 
 // Supported apps detection patterns (based on inapp-spy research + community reports)
 const INAPP_PATTERNS = [
@@ -170,6 +173,24 @@ function replaceScheme(url: string, from: string, to: string): string | null {
   return `${to}${url.slice(from.length)}`
 }
 
+export function toXSafariUrl(url: string): string | null {
+  return (
+    replaceScheme(url, "https://", "x-safari-https://") ??
+    replaceScheme(url, "http://", "x-safari-http://")
+  )
+}
+
+function twitterSafariRedirectUrl(pageUrl: string): string {
+  try {
+    if (typeof location !== "undefined" && location.origin) {
+      return `${location.origin}${EIAB_SAFARI_REDIRECT_PATH}?url=${encodeURIComponent(pageUrl)}`
+    }
+  } catch {
+    /* empty */
+  }
+  return toXSafariUrl(pageUrl) ?? pageUrl
+}
+
 function toAndroidIntent(url: string): string | null {
   try {
     const parsed = new URL(url)
@@ -252,13 +273,10 @@ export function getEscapeUrl(
     }
 
     if (TWITTER_REGEX.test(ua)) {
-      return url
+      return twitterSafariRedirectUrl(url)
     }
 
-    return (
-      replaceScheme(url, "https://", "x-safari-https://") ??
-      replaceScheme(url, "http://", "x-safari-http://")
-    )
+    return toXSafariUrl(url)
   }
 
   return null
@@ -273,26 +291,12 @@ function isMetaIOS(userAgent: string): boolean {
  * hang the host WebView, so a real user tap is required instead.
  *
  * Meta iOS: Facebook 555+ hangs on x-safari-* location.href (#2); IG/Threads
- * native schemes need a tap. Twitter/X iOS: x-safari-* and twitter:// are
- * no-ops; use `shareUrl` from a tap (`needsShare`).
+ * native schemes need a tap. Twitter/X iOS: JS scheme assignment is a no-op;
+ * the tap must be a same-origin navigation to `/__eiab/safari` (host route).
  */
 export function needsUserGesture(userAgent?: string): boolean {
   const ua = userAgent ?? getDefaultUserAgent() ?? ""
   return isMetaIOS(ua) || isTwitterIOS(ua)
-}
-
-/**
- * Twitter/X iOS: schemes and `_blank` stay in the IAB. The platform API is
- * `navigator.share` (Web Share), which requires transient activation.
- * https://developer.mozilla.org/en-US/docs/Web/API/Navigator/share
- */
-export function needsShare(userAgent?: string): boolean {
-  const ua = userAgent ?? getDefaultUserAgent() ?? ""
-  return isTwitterIOS(ua)
-}
-
-export function shareUrl(url: string): Promise<void> {
-  return navigator.share({ url })
 }
 
 export interface EiabUserAgentData {
@@ -316,7 +320,6 @@ export interface EiabDebugInfo {
   title: string
   isInAppBrowser: boolean
   needsUserGesture: boolean
-  needsShare: boolean
   escapeUrl: string | null
   webkitMessageHandlers: string[]
   isIOS: boolean
@@ -429,7 +432,6 @@ export function getDebugInfo(): EiabDebugInfo {
     title: typeof document !== "undefined" ? document.title : "",
     isInAppBrowser: isInAppBrowser(),
     needsUserGesture: needsUserGesture(),
-    needsShare: needsShare(),
     escapeUrl: getEscapeUrl(),
     webkitMessageHandlers: readWebkitMessageHandlers(),
     isIOS: isIOS(ua),

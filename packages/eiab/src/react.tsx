@@ -5,21 +5,15 @@ import {
   attemptEscape,
   getEscapeUrl,
   isInAppBrowser,
-  needsShare as needsShareFromCore,
   needsUserGesture as needsUserGestureFromCore,
-  shareUrl,
 } from "./index.js"
 
 export function needsUserGesture(userAgent?: string): boolean {
   return needsUserGestureFromCore(userAgent)
 }
 
-export function needsShare(userAgent?: string): boolean {
-  return needsShareFromCore(userAgent)
-}
-
-// Meta iOS: plain <a href> so native navigation carries the tap.
-// Twitter/X iOS: Web Share on the tap (`navigator.share`).
+// Plain <a href> so native navigation carries the tap. Twitter/X iOS href is
+// the host's `/__eiab/safari` redirector, not a JS scheme assignment.
 
 // ---------------------------------------------------------------------------
 // Hooks
@@ -139,34 +133,9 @@ export function EiabEscapeLink({
   style,
 }: EiabEscapeLinkProps): ReactNode {
   const escapeUrl = useEscapeUrl(url, userAgent)
-  const share = needsShare(userAgent)
 
   if (!escapeUrl) {
     return null
-  }
-
-  if (share) {
-    return (
-      <button
-        className={className}
-        data-eiab="escape-link"
-        onClick={() => {
-          void shareUrl(escapeUrl)
-        }}
-        style={{
-          background: "none",
-          border: "none",
-          color: "inherit",
-          cursor: "pointer",
-          font: "inherit",
-          padding: 0,
-          ...style,
-        }}
-        type="button"
-      >
-        {children}
-      </button>
-    )
   }
 
   return (
@@ -224,7 +193,6 @@ export function EiabEscapeDialog({
 }: EiabEscapeDialogProps): ReactNode {
   const inApp = useIsInAppBrowser(userAgent)
   const escapeUrl = useEscapeUrl(url, userAgent)
-  const share = needsShare(userAgent)
   const [dismissed, setDismissed] = useState(false)
   const [didCopy, setDidCopy] = useState(false)
 
@@ -306,22 +274,9 @@ export function EiabEscapeDialog({
             {description}
           </div>
         )}
-        {share ? (
-          <button
-            data-eiab="dialog-action"
-            onClick={() => {
-              void shareUrl(escapeUrl)
-            }}
-            style={dialogActionStyle}
-            type="button"
-          >
-            {action}
-          </button>
-        ) : (
-          <a data-eiab="dialog-action" href={escapeUrl} style={dialogActionStyle}>
-            {action}
-          </a>
-        )}
+        <a data-eiab="dialog-action" href={escapeUrl} style={dialogActionStyle}>
+          {action}
+        </a>
         <button
           data-eiab="dialog-copy"
           onClick={handleCopy}

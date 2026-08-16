@@ -295,17 +295,7 @@ describe("React Components", () => {
       expect(defaultPrevented).toBe(false)
     })
 
-    it("calls Web Share on Twitter/X iOS", async () => {
-      const share = async () => undefined
-      const calls: ShareData[] = []
-      Object.defineProperty(navigator, "share", {
-        configurable: true,
-        value: (data: ShareData) => {
-          calls.push(data)
-          return share()
-        },
-      })
-
+    it("points Twitter/X iOS at the safari redirector", async () => {
       await act(() => {
         render(
           <EiabEscapeLink url="https://example.com" userAgent={TWITTER_IOS_UA}>
@@ -314,14 +304,11 @@ describe("React Components", () => {
         )
       })
 
-      const button = screen.getByText("Open")
-      expect(button.tagName).toBe("BUTTON")
-
-      await act(() => {
-        button.click()
-      })
-
-      expect(calls).toEqual([{ url: "https://example.com" }])
+      const link = screen.getByText("Open")
+      expect(link.tagName).toBe("A")
+      expect(link.getAttribute("href")).toBe(
+        `http://localhost:3000/__eiab/safari?url=${encodeURIComponent("https://example.com")}`
+      )
     })
   })
 
