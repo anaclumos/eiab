@@ -418,16 +418,53 @@ function readWebkitMessageHandlers(): string[] {
   }
 }
 
-function openInNewWindow(url: string): boolean {
+function reportEscape(method: string, detail: string): void {
   try {
-    if (typeof window !== "undefined" && typeof window.open === "function") {
-      window.open(url, "_blank", "noopener,noreferrer")
-      return true
-    }
+    window.dispatchEvent(
+      new CustomEvent("eiab-escape", { detail: `${method} ${detail}` })
+    )
   } catch {
     /* empty */
   }
-  return false
+}
+
+export function openInNewWindow(url: string): void {
+  if (typeof window === "undefined") {
+    return
+  }
+
+  try {
+    const popup = window.open(url, "_blank")
+    reportEscape("window.open", popup ? "handle" : "null")
+  } catch (error) {
+    reportEscape("window.open", `throw ${error}`)
+  }
+
+  try {
+    const anchor = document.createElement("a")
+    anchor.href = url
+    anchor.target = "_blank"
+    anchor.rel = "noopener noreferrer"
+    document.body.appendChild(anchor)
+    anchor.click()
+    anchor.remove()
+    reportEscape("a.click", "ok")
+  } catch (error) {
+    reportEscape("a.click", `throw ${error}`)
+  }
+
+  try {
+    const form = document.createElement("form")
+    form.action = url
+    form.method = "GET"
+    form.target = "_blank"
+    document.body.appendChild(form)
+    form.submit()
+    form.remove()
+    reportEscape("form.submit", "ok")
+  } catch (error) {
+    reportEscape("form.submit", `throw ${error}`)
+  }
 }
 
 /**

@@ -7,6 +7,7 @@ import {
   isInAppBrowser,
   needsNewWindow as needsNewWindowFromCore,
   needsUserGesture as needsUserGestureFromCore,
+  openInNewWindow,
 } from "./index.js"
 
 export function needsUserGesture(userAgent?: string): boolean {
@@ -160,6 +161,7 @@ export function EiabEscapeLink({
       className={className}
       data-eiab="escape-link"
       href={escapeUrl}
+      onClick={newWindow ? () => openInNewWindow(escapeUrl) : undefined}
       rel={newWindow ? "noopener noreferrer" : undefined}
       style={style}
       target={newWindow ? "_blank" : undefined}
@@ -287,6 +289,7 @@ export function EiabEscapeDialog({
         <a
           data-eiab="dialog-action"
           href={escapeUrl}
+          onClick={newWindow ? () => openInNewWindow(escapeUrl) : undefined}
           rel={newWindow ? "noopener noreferrer" : undefined}
           style={{
             display: "block",

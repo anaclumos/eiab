@@ -161,6 +161,10 @@ export function DebugPanel() {
       }, 150)
     }
 
+    const onEscape = (event: Event) => {
+      const detail = (event as CustomEvent<string>).detail
+      log(`escape ${detail}`)
+    }
     const onVisibility = () => {
       log(`visibilitychange ${document.visibilityState}`)
     }
@@ -178,6 +182,7 @@ export function DebugPanel() {
     }
 
     document.addEventListener("click", onClick, true)
+    window.addEventListener("eiab-escape", onEscape)
     document.addEventListener("visibilitychange", onVisibility)
     window.addEventListener("pageshow", onPageShow)
     window.addEventListener("pagehide", onPageHide)
@@ -189,6 +194,7 @@ export function DebugPanel() {
         window.clearTimeout(id)
       }
       document.removeEventListener("click", onClick, true)
+      window.removeEventListener("eiab-escape", onEscape)
       document.removeEventListener("visibilitychange", onVisibility)
       window.removeEventListener("pageshow", onPageShow)
       window.removeEventListener("pagehide", onPageHide)
