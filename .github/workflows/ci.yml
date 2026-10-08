@@ -10,13 +10,6 @@ on:
 jobs:
   test:
     runs-on: ${{ vars.CI_RUNNER == 'github' && 'ubuntu-24.04' || fromJSON('["self-hosted","linux","arm64","check"]') }}
-    strategy:
-      fail-fast: false
-      matrix:
-        node:
-          - 18
-          - 20
-          - 22
 
     steps:
       - uses: actions/checkout@v4
