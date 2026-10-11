@@ -24,7 +24,6 @@ jobs:
 
       - run: bun install
       - run: bun run test
-      - run: bun run build
 
       - name: Publish eiab package
         run: npm publish --access public --provenance
