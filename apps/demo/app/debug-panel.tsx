@@ -45,30 +45,21 @@ function storeEvents(events: LogEntry[]): void {
   }
 }
 
-function copyButtonLabel(state: "idle" | "copied" | "select"): string {
-  if (state === "copied") {
-    return "Copied"
-  }
-  if (state === "select") {
-    return "Select below"
-  }
-  return "Copy report"
-}
+type CopyState = "idle" | "copied" | "select"
 
-function nowIso(): string {
-  return new Date().toISOString()
-}
-
-function deployMeta(): { commit: string; ref: string } {
-  return {
-    commit: process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ?? "",
-    ref: process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_REF ?? "",
-  }
+const COPY_LABEL: Record<CopyState, string> = {
+  idle: "Copy report",
+  copied: "Copied",
+  select: "Select below",
 }
 
 function formatReport(info: EiabDebugInfo | null, events: LogEntry[]): string {
-  const { commit, ref } = deployMeta()
-  const lines = ["=== eiab debug report ===", `copiedAt: ${nowIso()}`]
+  const commit = process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA
+  const ref = process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_REF
+  const lines = [
+    "=== eiab debug report ===",
+    `copiedAt: ${new Date().toISOString()}`,
+  ]
   if (commit) {
     lines.push(`commit: ${commit}`)
   }
@@ -102,21 +93,18 @@ function describeClick(event: Event): string | null {
   }
 
   const eiab = target.closest("[data-eiab]")
-  const anchor = target.closest("a")
-  if (!(eiab || anchor)) {
+  const el = eiab ?? target.closest("a")
+  if (!el) {
     return null
   }
 
-  const el = (eiab ?? anchor) as HTMLElement
   const parts = [
     "click",
     eiab ? `data-eiab=${eiab.getAttribute("data-eiab")}` : null,
     `tag=${el.tagName.toLowerCase()}`,
-    el instanceof HTMLAnchorElement || el.hasAttribute("href")
-      ? `href=${el.getAttribute("href") ?? ""}`
-      : null,
+    el.hasAttribute("href") ? `href=${el.getAttribute("href")}` : null,
     el.hasAttribute("target") ? `target=${el.getAttribute("target")}` : null,
-    `defaultPrevented=${event instanceof MouseEvent ? event.defaultPrevented : false}`,
+    `defaultPrevented=${event.defaultPrevented}`,
   ]
   return parts.filter(Boolean).join(" ")
 }
@@ -124,9 +112,7 @@ function describeClick(event: Event): string | null {
 export function DebugPanel() {
   const [info, setInfo] = useState<EiabDebugInfo | null>(null)
   const [events, setEvents] = useState<LogEntry[]>([])
-  const [copyState, setCopyState] = useState<"idle" | "copied" | "select">(
-    "idle"
-  )
+  const [copyState, setCopyState] = useState<CopyState>("idle")
   const originRef = useRef(0)
   const eventsRef = useRef<LogEntry[]>([])
 
@@ -265,7 +251,7 @@ export function DebugPanel() {
             size="sm"
             type="button"
           >
-            {copyButtonLabel(copyState)}
+            {COPY_LABEL[copyState]}
           </Button>
         </div>
       </div>
@@ -279,7 +265,7 @@ export function DebugPanel() {
           type="button"
           variant="outline"
         >
-          {copyButtonLabel(copyState)}
+          {COPY_LABEL[copyState]}
         </Button>
       </div>
       <p className="text-muted-foreground text-xs">
