@@ -1,15 +1,10 @@
 import type { Metadata } from "next"
-import { Geist, Geist_Mono, Inter } from "next/font/google"
+import { Geist_Mono, Inter } from "next/font/google"
 import Script from "next/script"
 import "./globals.css"
 import { EiabEscapeDialog, EscapeInAppBrowser } from "eiab/react"
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" })
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-})
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
@@ -29,9 +24,7 @@ export default function RootLayout({
 }>) {
   return (
     <html className={inter.variable} lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <body className={`${geistMono.variable} antialiased`}>
         {children}
         <Script
           data-token="e2e39295-face-45be-a80e-94ff15026f81"

@@ -5,7 +5,6 @@
     "build": "turbo run build",
     "dev": "turbo run dev",
     "test": "turbo run test",
-    "test:e2e": "turbo run test:e2e",
     "typecheck": "turbo run typecheck",
     "lint": "turbo run lint",
     "format": "bun x ultracite fix",
@@ -15,7 +14,6 @@
   "devDependencies": {
     "@biomejs/biome": "2.3.11",
     "@playwright/test": "^1.57.0",
-    "knip": "^5.82.1",
     "lefthook": "^2.0.15",
     "turbo": "^2.5.4",
     "typescript": "^5.7.3",
