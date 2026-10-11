@@ -141,7 +141,7 @@ function addQueryParam(url: string, key: string, value: string): string {
 }
 
 function replaceScheme(url: string, from: string, to: string): string | null {
-  if (!url.startsWith(from)) {
+  if (url.slice(0, from.length).toLowerCase() !== from) {
     return null
   }
   return `${to}${url.slice(from.length)}`
