@@ -231,7 +231,10 @@ export function EiabEscapeDialog({
     if (copyCount === 0) {
       return
     }
-    const timer = setTimeout(() => setCopyCount(0), 2000)
+    const timer = setTimeout(
+      () => setCopyCount((count) => (count === copyCount ? 0 : count)),
+      2000
+    )
     return () => clearTimeout(timer)
   }, [copyCount])
 
