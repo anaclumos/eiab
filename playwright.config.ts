@@ -8,7 +8,6 @@ export default defineConfig({
   workers: process.env.CI ? 1 : 4,
   reporter: process.env.CI ? "github" : "html",
   use: {
-    baseURL: "http://localhost:3000",
     trace: "on-first-retry",
   },
   projects: [
@@ -19,7 +18,7 @@ export default defineConfig({
   ],
   webServer: {
     command: "bun run e2e/test-server.ts",
-    url: "http://localhost:3000",
+    port: 3000,
     reuseExistingServer: !process.env.CI,
   },
 })
