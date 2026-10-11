@@ -34,7 +34,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "bun run build.ts",
+    "build": "bun run build.ts && tsc -p tsconfig.build.json",
     "test": "bun test",
     "test:watch": "bun test --watch",
     "typecheck": "tsc --noEmit",
