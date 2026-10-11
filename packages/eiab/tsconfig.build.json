@@ -1,8 +1,7 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "emitDeclarationOnly": true,
-    "outDir": "./dist"
+    "emitDeclarationOnly": true
   },
   "include": ["src/index.ts", "src/react.tsx"]
 }
