@@ -142,10 +142,7 @@ export function DebugPanel() {
   useEffect(() => {
     originRef.current = performance.now()
     const restored = loadStoredEvents()
-    if (restored.length > 0) {
-      eventsRef.current = restored
-      setEvents(restored)
-    }
+    eventsRef.current = restored
 
     const stillOnPage = (ms: number) => {
       log(

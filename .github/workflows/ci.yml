@@ -24,6 +24,7 @@ jobs:
       - run: bun run build
       - run: bun run test
       - run: bun run typecheck
+      - run: bun run lint
 
   e2e:
     runs-on: ubuntu-latest
