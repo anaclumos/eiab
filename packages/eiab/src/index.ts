@@ -95,47 +95,21 @@ const IOS_REGEX = /iP(hone|ad|od)/i
 const ANDROID_REGEX = /Android/i
 
 function getDefaultUserAgent(): string | undefined {
-  try {
-    if (
-      typeof navigator !== "undefined" &&
-      typeof navigator.userAgent === "string"
-    ) {
-      return navigator.userAgent
-    }
-  } catch (_) {
-    return undefined
-  }
-
-  return undefined
+  return globalThis.navigator?.userAgent
 }
 
 function getDefaultUrl(): string | undefined {
-  try {
-    if (typeof location !== "undefined" && typeof location.href === "string") {
-      return location.href
-    }
-  } catch (_) {
-    return undefined
-  }
-
-  return undefined
+  return globalThis.location?.href
 }
 
 // Telegram Android has no UA signal; detect via runtime globals
 function isTelegramRuntime(): boolean {
-  try {
-    if (typeof window !== "undefined") {
-      return (
-        "TelegramWebview" in window ||
-        "TelegramWebviewProxy" in window ||
-        "TelegramWebviewProxyProto" in window
-      )
-    }
-  } catch (_) {
-    /* empty */
-  }
-
-  return false
+  return (
+    typeof window !== "undefined" &&
+    ("TelegramWebview" in window ||
+      "TelegramWebviewProxy" in window ||
+      "TelegramWebviewProxyProto" in window)
+  )
 }
 
 function isIOS(userAgent: string): boolean {
@@ -397,10 +371,9 @@ function readConnection(nav: NavigatorDebugExtras): EiabConnectionInfo | null {
 }
 
 function isStandaloneDisplay(nav: NavigatorDebugExtras): boolean {
-  const standaloneMedia =
-    typeof window.matchMedia === "function" &&
-    window.matchMedia("(display-mode: standalone)").matches
-  return Boolean(nav.standalone || standaloneMedia)
+  return Boolean(
+    nav.standalone || window.matchMedia("(display-mode: standalone)").matches
+  )
 }
 
 function readWebkitMessageHandlers(): string[] {
@@ -424,14 +397,14 @@ export function getDebugInfo(): EiabDebugInfo {
   }
 
   const nav = navigator as Navigator & NavigatorDebugExtras
-  const ua = nav.userAgent ?? ""
+  const ua = nav.userAgent
   const win = window as Window & { Telegram?: { WebApp?: unknown } }
 
   return {
-    href: typeof location !== "undefined" ? location.href : "",
+    href: location.href,
     userAgent: ua,
-    referrer: typeof document !== "undefined" ? document.referrer : "",
-    title: typeof document !== "undefined" ? document.title : "",
+    referrer: document.referrer,
+    title: document.title,
     isInAppBrowser: isInAppBrowser(),
     needsUserGesture: needsUserGesture(),
     needsManualEscape: needsManualEscape(),
@@ -439,28 +412,27 @@ export function getDebugInfo(): EiabDebugInfo {
     webkitMessageHandlers: readWebkitMessageHandlers(),
     isIOS: isIOS(ua),
     isAndroid: isAndroid(ua),
-    language: nav.language ?? "",
+    language: nav.language,
     languages: Array.from(nav.languages ?? []),
-    platform: nav.platform ?? "",
-    vendor: nav.vendor ?? "",
-    cookieEnabled: Boolean(nav.cookieEnabled),
+    platform: nav.platform,
+    vendor: nav.vendor,
+    cookieEnabled: nav.cookieEnabled,
     maxTouchPoints: nav.maxTouchPoints ?? 0,
     standalone: isStandaloneDisplay(nav),
-    visibilityState:
-      typeof document !== "undefined" ? document.visibilityState : "",
-    innerWidth: window.innerWidth ?? 0,
-    innerHeight: window.innerHeight ?? 0,
-    screenWidth: window.screen?.width ?? 0,
-    screenHeight: window.screen?.height ?? 0,
-    devicePixelRatio: window.devicePixelRatio ?? 1,
+    visibilityState: document.visibilityState,
+    innerWidth: window.innerWidth,
+    innerHeight: window.innerHeight,
+    screenWidth: window.screen.width,
+    screenHeight: window.screen.height,
+    devicePixelRatio: window.devicePixelRatio,
     telegramWebview: isTelegramRuntime(),
     telegramWebApp: Boolean(win.Telegram?.WebApp),
     hasShare: typeof nav.share === "function",
     hasClipboard: Boolean(nav.clipboard),
     hasSafari: "safari" in window,
     hasWebkit: "webkit" in window,
-    historyLength: window.history?.length ?? 0,
-    timeOrigin: typeof performance !== "undefined" ? performance.timeOrigin : 0,
+    historyLength: window.history.length,
+    timeOrigin: performance.timeOrigin,
     collectedAt: new Date().toISOString(),
     userAgentData: readUserAgentData(nav),
     connection: readConnection(nav),
@@ -481,20 +453,5 @@ export function attemptEscape(currentUrl?: string, userAgent?: string): void {
     return
   }
 
-  try {
-    if (typeof window !== "undefined" && window.location) {
-      window.location.href = escapeUrl
-      return
-    }
-  } catch (_) {
-    /* empty */
-  }
-
-  try {
-    if (typeof location !== "undefined") {
-      ;(location as Location).href = escapeUrl
-    }
-  } catch (_) {
-    /* empty */
-  }
+  window.location.href = escapeUrl
 }

@@ -9,7 +9,7 @@
     "lint": "turbo run lint",
     "format": "bun x ultracite fix",
     "clean": "turbo run clean",
-    "prepare": "lefthook install || true"
+    "prepare": "lefthook install"
   },
   "devDependencies": {
     "@biomejs/biome": "2.3.11",
