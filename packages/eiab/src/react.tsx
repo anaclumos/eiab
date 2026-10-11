@@ -224,7 +224,19 @@ export function EiabEscapeDialog({
 }: EiabEscapeDialogProps): ReactNode {
   const escapeUrl = useEscapeUrl(url, userAgent)
   const [dismissed, setDismissed] = useState(false)
-  const [didCopy, setDidCopy] = useState(false)
+  const [copyCount, setCopyCount] = useState(0)
+  const didCopy = copyCount > 0
+
+  useEffect(() => {
+    if (copyCount === 0) {
+      return
+    }
+    const timer = setTimeout(
+      () => setCopyCount((count) => (count === copyCount ? 0 : count)),
+      2000
+    )
+    return () => clearTimeout(timer)
+  }, [copyCount])
 
   if (dismissed || !escapeUrl) {
     return null
@@ -245,8 +257,7 @@ export function EiabEscapeDialog({
 
   const handleCopy = async () => {
     if (await copyPageUrl(url)) {
-      setDidCopy(true)
-      setTimeout(() => setDidCopy(false), 2000)
+      setCopyCount((count) => count + 1)
     }
   }
 
