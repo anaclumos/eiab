@@ -198,13 +198,11 @@ export function getEscapeUrl(
     return null
   }
 
-  const ua = userAgent ?? getDefaultUserAgent() ?? ""
-  if (
-    !isInAppBrowser(ua) &&
-    (userAgent !== undefined || !isTelegramRuntime())
-  ) {
+  if (!isInAppBrowser(userAgent)) {
     return null
   }
+
+  const ua = userAgent ?? getDefaultUserAgent() ?? ""
 
   if (KAKAOTALK_REGEX.test(ua)) {
     return `kakaotalk://web/openExternal?url=${encodeURIComponent(url)}`
