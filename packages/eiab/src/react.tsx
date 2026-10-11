@@ -23,13 +23,8 @@ const MANUAL_ESCAPE_DESCRIPTION =
   "X does not let websites open Safari. Tap •••, then Open in browser."
 
 async function copyPageUrl(url?: string): Promise<boolean> {
-  const target =
-    url ?? (typeof window !== "undefined" ? window.location?.href : undefined)
-  if (!target) {
-    return false
-  }
   try {
-    await navigator.clipboard.writeText(target)
+    await navigator.clipboard.writeText(url ?? location.href)
     return true
   } catch {
     return false
@@ -172,9 +167,7 @@ export function EiabEscapeLink({
         }
         // https navigation reloads inside X. Keep href for long-press copy.
         event.preventDefault()
-        copyPageUrl(url).catch(() => {
-          /* clipboard unavailable — long-press the link */
-        })
+        copyPageUrl(url)
       }}
       style={style}
     >

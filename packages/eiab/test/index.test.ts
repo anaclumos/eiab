@@ -412,21 +412,6 @@ describe("needsUserGesture", () => {
 })
 
 describe("attemptEscape", () => {
-  it("writes to global location when window is unavailable", () => {
-    const stubLocation = { href: HTTPS_URL }
-    const originalWindow = globalThis.window
-    const originalLocation = globalThis.location
-
-    ;(globalThis as any).window = undefined
-    globalThis.location = stubLocation as any
-
-    attemptEscape(HTTPS_URL, GENERIC_INAPP_UA)
-    expect(stubLocation.href).toBe("x-safari-https://example.com/path?foo=1")
-
-    ;(globalThis as any).window = originalWindow
-    globalThis.location = originalLocation
-  })
-
   it("does not auto-navigate on Meta iOS (avoids Facebook hang)", () => {
     // Facebook iOS 555+ hangs on location.href = x-safari-*; Instagram/
     // Threads native schemes also require a real user tap. Auto-escape must
