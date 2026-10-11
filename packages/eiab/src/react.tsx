@@ -222,12 +222,11 @@ export function EiabEscapeDialog({
   style,
   onDismiss,
 }: EiabEscapeDialogProps): ReactNode {
-  const inApp = useIsInAppBrowser(userAgent)
   const escapeUrl = useEscapeUrl(url, userAgent)
   const [dismissed, setDismissed] = useState(false)
   const [didCopy, setDidCopy] = useState(false)
 
-  if (!inApp || dismissed || !escapeUrl) {
+  if (dismissed || !escapeUrl) {
     return null
   }
 
