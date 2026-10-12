@@ -8,7 +8,7 @@ on:
 
 jobs:
   test:
-    runs-on: ${{ vars.CI_RUNNER == 'github' && 'ubuntu-24.04' || fromJSON('["self-hosted","linux","arm64","check"]') }}
+    runs-on: [self-hosted, linux, arm64, check]
 
     steps:
       - uses: actions/checkout@v4
@@ -25,11 +25,15 @@ jobs:
       - run: bun run lint
 
   e2e:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, arm64, check]
     steps:
       - uses: actions/checkout@v4
 
       - uses: oven-sh/setup-bun@v1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
 
       - run: bun install
 
@@ -37,7 +41,7 @@ jobs:
         run: bun run build --filter=eiab
 
       - name: Install Playwright Browsers
-        run: bunx playwright install --with-deps chromium
+        run: bunx playwright install chromium
 
       - name: Run Playwright tests
         run: bunx playwright test
