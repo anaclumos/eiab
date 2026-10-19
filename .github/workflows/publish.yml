@@ -7,7 +7,7 @@ on:
 
 jobs:
   publish:
-    runs-on: [self-hosted, linux, arm64, build]
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write

@@ -3,6 +3,7 @@ import { act, cleanup, render, screen } from "@testing-library/react"
 import {
   EiabEscapeDialog,
   EiabEscapeLink,
+  EiabEscapeToast,
   EiabFailed,
   EiabSuccess,
   EscapeInAppBrowser,
@@ -15,6 +16,8 @@ const TWITTER_IOS_UA =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 26_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/23D5103d Twitter for iPhone/11.57"
 const SAFARI_UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
+const FACEBOOK_ANDROID_UA =
+  "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Mobile Safari/537.36 FB_IAB/FB4A"
 
 function TestHookComponent({ userAgent }: { userAgent?: string }) {
   const inApp = useIsInAppBrowser(userAgent)
@@ -222,6 +225,60 @@ describe("React Components", () => {
       await new Promise((r) => setTimeout(r, 50))
       expect(mockLocation.href).toBe(originalHref)
       expect(screen.getByTestId("fallback-ui")).toBeTruthy()
+    })
+
+    it("asks by default: shows the toast and does not navigate", async () => {
+      const originalHref = "https://example.com/page"
+      const mockLocation = { href: originalHref }
+      ;(globalThis as any).window = { location: mockLocation }
+
+      await act(() => {
+        render(
+          <EscapeInAppBrowser
+            url={originalHref}
+            userAgent={FACEBOOK_ANDROID_UA}
+          />
+        )
+      })
+
+      await new Promise((r) => setTimeout(r, 50))
+      expect(mockLocation.href).toBe(originalHref)
+      const action = document.querySelector("a[data-eiab='toast-action']")
+      expect(action?.getAttribute("href")).toStartWith("intent://")
+    })
+
+    it("renders the fallback instead of the toast in ask mode", async () => {
+      await act(() => {
+        render(
+          <EscapeInAppBrowser
+            fallback={<div data-testid="fallback-ui">Tap to escape</div>}
+            url="https://example.com"
+            userAgent={FACEBOOK_ANDROID_UA}
+          />
+        )
+      })
+
+      expect(screen.getByTestId("fallback-ui")).toBeTruthy()
+      expect(document.querySelector('[data-eiab="toast"]')).toBeNull()
+    })
+
+    it("navigates on mount in auto mode", async () => {
+      const originalHref = "https://example.com/page"
+      const mockLocation = { href: originalHref }
+      ;(globalThis as any).window = { location: mockLocation }
+
+      await act(() => {
+        render(
+          <EscapeInAppBrowser
+            mode="auto"
+            url={originalHref}
+            userAgent={FACEBOOK_ANDROID_UA}
+          />
+        )
+      })
+
+      expect(mockLocation.href).toStartWith("intent://")
+      expect(document.querySelector('[data-eiab="toast"]')).toBeNull()
     })
   })
 
@@ -434,6 +491,99 @@ describe("React Components", () => {
       expect(
         document.querySelector('[data-eiab="dialog-dismiss"]')
       ).toBeTruthy()
+    })
+  })
+
+  describe("EiabEscapeToast", () => {
+    beforeEach(() => {
+      window.sessionStorage.clear()
+    })
+
+    it("renders a tap-to-escape link in an in-app browser", async () => {
+      await act(() => {
+        render(
+          <EiabEscapeToast
+            url="https://example.com"
+            userAgent={INSTAGRAM_IOS_UA}
+          />
+        )
+      })
+
+      const toast = document.querySelector('[data-eiab="toast"]')
+      expect(toast?.tagName).toBe("OUTPUT")
+      expect(
+        screen.getByText("This page works best in your default browser.")
+      ).toBeTruthy()
+      const action = document.querySelector("a[data-eiab='toast-action']")
+      expect(action?.getAttribute("href")).toBe(
+        `instagram://extbrowser/?url=${encodeURIComponent("https://example.com")}`
+      )
+      expect(action?.textContent).toBe("Open")
+    })
+
+    it("renders nothing for normal browsers", async () => {
+      await act(() => {
+        render(
+          <EiabEscapeToast url="https://example.com" userAgent={SAFARI_UA} />
+        )
+      })
+
+      expect(document.querySelector('[data-eiab="toast"]')).toBeNull()
+    })
+
+    it("uses copy as the action on Twitter/X iOS", async () => {
+      await act(() => {
+        render(
+          <EiabEscapeToast
+            url="https://example.com"
+            userAgent={TWITTER_IOS_UA}
+          />
+        )
+      })
+
+      const action = document.querySelector('[data-eiab="toast-action"]')
+      expect(action?.tagName).toBe("BUTTON")
+      expect(action?.textContent).toBe("Copy link")
+      expect(
+        screen.getByText(
+          "X does not let websites open Safari. Tap •••, then Open in browser."
+        )
+      ).toBeTruthy()
+    })
+
+    it("stays dismissed for the session once dismissed", async () => {
+      let dismissed = false
+
+      await act(() => {
+        render(
+          <EiabEscapeToast
+            onDismiss={() => {
+              dismissed = true
+            }}
+            url="https://example.com"
+            userAgent={INSTAGRAM_IOS_UA}
+          />
+        )
+      })
+
+      await act(() => {
+        screen.getByLabelText("Dismiss").click()
+      })
+
+      expect(document.querySelector('[data-eiab="toast"]')).toBeNull()
+      expect(dismissed).toBe(true)
+
+      cleanup()
+      await act(() => {
+        render(
+          <EiabEscapeToast
+            url="https://example.com"
+            userAgent={INSTAGRAM_IOS_UA}
+          />
+        )
+      })
+
+      expect(document.querySelector('[data-eiab="toast"]')).toBeNull()
     })
   })
 })
