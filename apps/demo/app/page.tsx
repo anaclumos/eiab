@@ -27,8 +27,8 @@ export default function Home() {
           <StatusBadge />
         </div>
         <p className="text-muted-foreground text-sm leading-relaxed">
-          If a sheet appears, follow it (Copy link / ••• → Open in browser),
-          then <strong>Continue anyway</strong> and copy the report below.
+          If a prompt appears, tap <strong>Open</strong> (on X: Copy link, then
+          ••• → Open in browser), or dismiss it and copy the report below.
         </p>
       </header>
       <DebugPanel />
