@@ -10,7 +10,7 @@ import {
 
 const PASSED_QA_SETUP_BASELINE = /✓.*QA setup baseline/
 const FAILED_QA_SETUP_PAST_BUDGET = /✘.*QA setup past budget/
-const SETUP_TIMEOUT = /Test timeout of 300 ?ms exceeded\./
+const SETUP_TIMEOUT = /Test timeout of 100 ?ms exceeded\./
 
 test("a spec whose throwaway repository's setup outlasts its budget fails at that budget", async () => {
   test.setTimeout(170_000)
@@ -29,7 +29,7 @@ test("QA setup baseline", async ({ makeClone }) => {
 })
 
 test("QA setup past budget", async ({ makeClone }) => {
-  test.setTimeout(300)
+  test.setTimeout(100)
   await makeClone()
 })
 `,

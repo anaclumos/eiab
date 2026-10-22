@@ -5,6 +5,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs"
 import { tmpdir } from "node:os"
@@ -197,6 +198,7 @@ function createClone() {
       await must("git", ["init", "--quiet", "--initial-branch=main"])
       await must("git", ["config", "user.name", "Pre-commit QA"])
       await must("git", ["config", "user.email", "qa@example.com"])
+      await must("git", ["config", "maintenance.auto", "false"])
       await must("git", ["add", "--all", "--force"])
       await must("git", [
         "commit",
@@ -204,7 +206,8 @@ function createClone() {
         "--message",
         "the checkout's index",
       ])
-      await must("bun", ["install"])
+      symlinkSync(join(REPO_ROOT, "node_modules"), join(dir, "node_modules"))
+      await must("bun", ["run", "prepare"])
     },
     remove: async () => {
       removed = true
