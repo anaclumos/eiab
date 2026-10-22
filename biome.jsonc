@@ -9,5 +9,17 @@
   },
   "files": {
     "includes": ["packages/**", "apps/**", "e2e/**", "*.ts"]
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["e2e/pre-commit/clone.ts"],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noEmptyPattern": "off"
+          }
+        }
+      }
+    }
+  ]
 }

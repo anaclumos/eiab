@@ -1,4 +1,4 @@
-import { spawn, spawnSync } from "node:child_process"
+import { type ChildProcess, spawn, spawnSync } from "node:child_process"
 import {
   appendFileSync,
   existsSync,
@@ -9,10 +9,12 @@ import {
 } from "node:fs"
 import { tmpdir } from "node:os"
 import { dirname, join, resolve } from "node:path"
+import { test as playwrightTest } from "@playwright/test"
 
 const REPO_ROOT = resolve(__dirname, "../..")
 
-export const COMMIT_TEST_TIMEOUT = 120_000
+const COMMIT_TEST_TIMEOUT = 120_000
+const STOP_GRACE = 5000
 
 const localGitVars = spawnSync("git", ["rev-parse", "--local-env-vars"], {
   encoding: "utf8",
@@ -29,6 +31,33 @@ function cleanEnv(): NodeJS.ProcessEnv {
   return env
 }
 
+function signalGroup(child: ChildProcess, signal: NodeJS.Signals): void {
+  if (child.pid === undefined) {
+    return
+  }
+  try {
+    process.kill(-child.pid, signal)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ESRCH") {
+      throw error
+    }
+  }
+}
+
+function stop(child: ChildProcess): Promise<void> {
+  return new Promise((done) => {
+    const kill = setTimeout(() => {
+      signalGroup(child, "SIGKILL")
+      done()
+    }, STOP_GRACE)
+    child.once("close", () => {
+      clearTimeout(kill)
+      done()
+    })
+    signalGroup(child, "SIGINT")
+  })
+}
+
 export interface RunResult {
   output: string
   status: number | null
@@ -36,70 +65,84 @@ export interface RunResult {
 
 export interface Clone {
   append: (path: string, content: string) => void
-  commit: (...args: string[]) => RunResult & { seconds: number }
+  commit: (...args: string[]) => Promise<RunResult & { seconds: number }>
   dir: string
-  git: (...args: string[]) => RunResult
-  head: () => string
+  git: (...args: string[]) => Promise<RunResult>
+  head: () => Promise<string>
   read: (path: string) => string
-  remove: () => void
-  show: (path: string) => string | null
-  staged: () => string[]
-  status: () => string[]
+  show: (path: string) => Promise<string | null>
+  staged: () => Promise<string[]>
+  status: () => Promise<string[]>
   write: (path: string, content: string) => void
 }
 
-export function makeClone(): Clone {
+function createClone() {
   const base = mkdtempSync(join(tmpdir(), "eiab-pre-commit-"))
   const dir = join(base, "repo")
   const env = cleanEnv()
+  const running = new Set<ChildProcess>()
+  let removed = false
 
-  const run = (command: string, args: string[]): RunResult => {
-    const result = spawnSync(command, args, {
-      cwd: existsSync(dir) ? dir : base,
-      env,
-      encoding: "utf8",
-      maxBuffer: 64 * 1024 * 1024,
+  const run = (command: string, args: string[]) =>
+    new Promise<RunResult>((done, fail) => {
+      if (removed) {
+        fail(new Error(`${command} ${args.join(" ")} ran after the test ended`))
+        return
+      }
+      const child = spawn(command, args, {
+        cwd: existsSync(dir) ? dir : base,
+        env,
+        detached: true,
+        stdio: ["ignore", "pipe", "pipe"],
+      })
+      running.add(child)
+      let stdout = ""
+      let stderr = ""
+      child.stdout.setEncoding("utf8").on("data", (chunk: string) => {
+        stdout += chunk
+      })
+      child.stderr.setEncoding("utf8").on("data", (chunk: string) => {
+        stderr += chunk
+      })
+      child.on("error", (error) => {
+        running.delete(child)
+        fail(error)
+      })
+      child.on("close", (status) => {
+        running.delete(child)
+        done({ status, output: `${stdout}${stderr}` })
+      })
     })
-    return {
-      status: result.status,
-      output: `${result.stdout ?? ""}${result.stderr ?? ""}`,
-    }
-  }
-  const must = (command: string, args: string[]): string => {
-    const result = run(command, args)
+  const must = async (command: string, args: string[]): Promise<string> => {
+    const result = await run(command, args)
     if (result.status !== 0) {
       throw new Error(`${command} ${args.join(" ")} failed:\n${result.output}`)
     }
     return result.output
   }
 
-  must("git", ["-C", REPO_ROOT, "checkout-index", "--all", `--prefix=${dir}/`])
-  must("git", ["init", "--quiet", "--initial-branch=main"])
-  must("git", ["config", "user.name", "Pre-commit QA"])
-  must("git", ["config", "user.email", "qa@example.com"])
-  must("git", ["add", "--all", "--force"])
-  must("git", ["commit", "--quiet", "--message", "the checkout's index"])
-  must("bun", ["install"])
-
   const git = (...args: string[]) => run("git", args)
   const lines = (text: string) => text.split("\n").filter(Boolean)
 
-  return {
+  const clone: Clone = {
     dir,
     git,
-    commit: (...args) => {
+    commit: async (...args) => {
       const started = Date.now()
-      const result = git("commit", ...args)
+      const result = await git("commit", ...args)
       return { ...result, seconds: (Date.now() - started) / 1000 }
     },
-    head: () => must("git", ["rev-parse", "HEAD"]).trim(),
-    show: (path) => {
-      const result = git("show", `HEAD:${path}`)
+    head: async () => (await must("git", ["rev-parse", "HEAD"])).trim(),
+    show: async (path) => {
+      const result = await git("show", `HEAD:${path}`)
       return result.status === 0 ? result.output : null
     },
-    status: () =>
-      lines(must("git", ["status", "--porcelain", "--untracked-files=all"])),
-    staged: () => lines(must("git", ["diff", "--cached", "--name-only"])),
+    status: async () =>
+      lines(
+        await must("git", ["status", "--porcelain", "--untracked-files=all"])
+      ),
+    staged: async () =>
+      lines(await must("git", ["diff", "--cached", "--name-only"])),
     read: (path) => readFileSync(join(dir, path), "utf8"),
     write: (path, content) => {
       const target = join(dir, path)
@@ -107,8 +150,48 @@ export function makeClone(): Clone {
       writeFileSync(target, content)
     },
     append: (path, content) => appendFileSync(join(dir, path), content),
-    remove: () => {
+  }
+
+  return {
+    clone,
+    setup: async () => {
+      await must("git", [
+        "-C",
+        REPO_ROOT,
+        "checkout-index",
+        "--all",
+        `--prefix=${dir}/`,
+      ])
+      await must("git", ["init", "--quiet", "--initial-branch=main"])
+      await must("git", ["config", "user.name", "Pre-commit QA"])
+      await must("git", ["config", "user.email", "qa@example.com"])
+      await must("git", ["add", "--all", "--force"])
+      await must("git", [
+        "commit",
+        "--quiet",
+        "--message",
+        "the checkout's index",
+      ])
+      await must("bun", ["install"])
+    },
+    remove: async () => {
+      removed = true
+      await Promise.all([...running].map(stop))
       spawn("rm", ["-rf", base], { detached: true, stdio: "ignore" }).unref()
     },
   }
 }
+
+export const test = playwrightTest.extend<{ makeClone: () => Promise<Clone> }>({
+  makeClone: async ({}, use, testInfo) => {
+    testInfo.setTimeout(COMMIT_TEST_TIMEOUT)
+    const clones: ReturnType<typeof createClone>[] = []
+    await use(async () => {
+      const made = createClone()
+      clones.push(made)
+      await made.setup()
+      return made.clone
+    })
+    await Promise.all(clones.map((made) => made.remove()))
+  },
+})
