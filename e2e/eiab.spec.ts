@@ -57,24 +57,23 @@ test.describe("Facebook in-app browser (Android)", () => {
   })
 })
 
-test.describe("User agent detection edge cases", () => {
-  test("detects various in-app browsers", async ({ browser, baseURL }) => {
-    const inAppUAs = [
-      "Mozilla/5.0 (iPhone) naver",
-      "Mozilla/5.0 (Android) snapchat",
-      "Mozilla/5.0 (iPhone) WhatsApp",
-      "Mozilla/5.0 (Android) line/13.0",
-      "Mozilla/5.0 (X11; Linux x86_64) electron",
-      "Mozilla/5.0 (iPhone) Twitter",
-      "Mozilla/5.0 (Linux; Android 14; wv) AppleWebKit/537.36 TwitterAndroid",
-    ]
+const EDGE_CASE_IN_APP_UAS = [
+  "Mozilla/5.0 (iPhone) naver",
+  "Mozilla/5.0 (Android) snapchat",
+  "Mozilla/5.0 (iPhone) WhatsApp",
+  "Mozilla/5.0 (Android) line/13.0",
+  "Mozilla/5.0 (X11; Linux x86_64) electron",
+  "Mozilla/5.0 (iPhone) Twitter",
+  "Mozilla/5.0 (Linux; Android 14; wv) AppleWebKit/537.36 TwitterAndroid",
+]
 
-    for (const ua of inAppUAs) {
-      const context = await browser.newContext({ baseURL, userAgent: ua })
-      const page = await context.newPage()
+for (const ua of EDGE_CASE_IN_APP_UAS) {
+  test.describe(`User agent detection edge case: ${ua}`, () => {
+    test.use({ userAgent: ua })
+
+    test("detects as in-app browser", async ({ page }) => {
       await page.goto("/")
       await expect(page.getByTestId("status")).toHaveText("in-app")
-      await context.close()
-    }
+    })
   })
-})
+}

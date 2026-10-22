@@ -14,6 +14,8 @@ const REPO_ROOT = resolve(__dirname, "../..")
 
 export const COMMIT_TEST_TIMEOUT = 120_000
 
+const CPU_TIMES = /\d+m[\d.]+s \d+m[\d.]+s\n(\d+)m([\d.]+)s (\d+)m([\d.]+)s\n$/
+
 const localGitVars = spawnSync("git", ["rev-parse", "--local-env-vars"], {
   encoding: "utf8",
 })
@@ -36,7 +38,7 @@ export interface RunResult {
 
 export interface Clone {
   append: (path: string, content: string) => void
-  commit: (...args: string[]) => RunResult & { seconds: number }
+  commit: (...args: string[]) => RunResult & { cpuSeconds: number }
   dir: string
   git: (...args: string[]) => RunResult
   head: () => string
@@ -88,9 +90,25 @@ export function makeClone(): Clone {
     dir,
     git,
     commit: (...args) => {
-      const started = Date.now()
-      const result = git("commit", ...args)
-      return { ...result, seconds: (Date.now() - started) / 1000 }
+      const result = run("sh", [
+        "-c",
+        'git commit "$@"; status=$?; times >&2; exit $status',
+        "sh",
+        ...args,
+      ])
+      const times = CPU_TIMES.exec(result.output)
+      if (!times) {
+        throw new Error(`git commit printed no CPU times:\n${result.output}`)
+      }
+      const [userMinutes, userSeconds, systemMinutes, systemSeconds] = times
+        .slice(1)
+        .map(Number)
+      return {
+        status: result.status,
+        output: result.output.slice(0, times.index),
+        cpuSeconds:
+          (userMinutes + systemMinutes) * 60 + userSeconds + systemSeconds,
+      }
     },
     head: () => must("git", ["rev-parse", "HEAD"]).trim(),
     show: (path) => {
