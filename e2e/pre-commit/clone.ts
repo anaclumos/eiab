@@ -198,6 +198,7 @@ function createClone() {
       await must("git", ["init", "--quiet", "--initial-branch=main"])
       await must("git", ["config", "user.name", "Pre-commit QA"])
       await must("git", ["config", "user.email", "qa@example.com"])
+      await must("git", ["config", "maintenance.auto", "false"])
       await must("git", ["add", "--all", "--force"])
       await must("git", [
         "commit",
