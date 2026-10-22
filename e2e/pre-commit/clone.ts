@@ -5,6 +5,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs"
 import { tmpdir } from "node:os"
@@ -204,7 +205,8 @@ function createClone() {
         "--message",
         "the checkout's index",
       ])
-      await must("bun", ["install"])
+      symlinkSync(join(REPO_ROOT, "node_modules"), join(dir, "node_modules"))
+      await must("bun", ["run", "prepare"])
     },
     remove: async () => {
       removed = true
