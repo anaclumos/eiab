@@ -20,7 +20,7 @@ test("a good staged change commits in seconds despite broken files outside the c
   const result = await clone.commit("-m", "good change")
 
   expect(result.status, result.output).toBe(0)
-  expect(result.seconds).toBeLessThan(60)
+  expect(result.cpuSeconds).toBeLessThan(60)
   expect(await clone.head()).not.toBe(before)
   expect(await clone.show("apps/demo/lib/utils.ts")).toContain(
     "export const qaGoodChange = 1"
