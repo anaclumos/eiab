@@ -73,9 +73,12 @@ export function makeClone(): Clone {
     return result.output
   }
 
-  must("git", ["clone", "--quiet", REPO_ROOT, dir])
+  must("git", ["-C", REPO_ROOT, "checkout-index", "--all", `--prefix=${dir}/`])
+  must("git", ["init", "--quiet", "--initial-branch=main"])
   must("git", ["config", "user.name", "Pre-commit QA"])
   must("git", ["config", "user.email", "qa@example.com"])
+  must("git", ["add", "--all", "--force"])
+  must("git", ["commit", "--quiet", "--message", "the checkout's index"])
   must("bun", ["install"])
 
   const git = (...args: string[]) => run("git", args)
