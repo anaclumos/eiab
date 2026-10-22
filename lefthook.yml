@@ -6,23 +6,9 @@
 pre-commit:
   parallel: true
   jobs:
-    - name: format
-      run: bun x ultracite fix {staged_files}
-      glob:
-        - "*.js"
-        - "*.jsx"
-        - "*.ts"
-        - "*.tsx"
-        - "*.json"
-        - "*.jsonc"
-        - "*.css"
+    - name: format, typecheck, lint on the index
+      run: script=$(git show :scripts/pre-commit.sh) && sh -c "$script"
       stage_fixed: true
-    - name: typecheck and lint
-      run: bun x turbo run typecheck lint
-      glob:
-        - "*.ts"
-        - "*.tsx"
-        - "*.json"
 
 pre-push:
   parallel: true
@@ -38,4 +24,4 @@ pre-push:
         piped: true
         jobs:
           - run: bun x turbo run build test typecheck lint
-          - run: bun x playwright test
+          - run: unset $(git rev-parse --local-env-vars); bun x playwright test
