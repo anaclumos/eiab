@@ -3,8 +3,7 @@ set -eu
 
 root=$(git rev-parse --show-toplevel)
 snapshot=$(mktemp -d)
-finished=
-trap 'status=$?; rm -rf "$snapshot" >/dev/null 2>&1 & [ -n "$finished" ] || exit "$((status ? status : 1))"' EXIT
+trap 'status=$?; rm -rf "$snapshot" >/dev/null 2>&1 & exit "$((status ? status : 1))"' EXIT
 trap 'exit 1' HUP INT TERM
 
 cache="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")/.turbo/cache"
@@ -29,4 +28,6 @@ bun x turbo run typecheck lint --cache-dir="$cache" --output-logs=errors-only
 for file; do
   cmp -s "$file" "$root/$file" || cp "$file" "$root/$file"
 done
-finished=1
+
+rm -rf "$snapshot" >/dev/null 2>&1 &
+trap - EXIT
