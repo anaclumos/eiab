@@ -3,6 +3,10 @@
 # pre-push is the gate before code leaves the machine, and the hook the merge
 # gate reruns on the head merged onto the base tip.
 
+# A hook that cannot find its lefthook binary fails the commit or push instead
+# of printing "Can't find lefthook in PATH" and passing with no check.
+assert_lefthook_installed: true
+
 pre-commit:
   parallel: true
   jobs:
