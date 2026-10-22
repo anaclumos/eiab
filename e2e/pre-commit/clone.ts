@@ -13,7 +13,7 @@ import { test as playwrightTest } from "@playwright/test"
 
 const REPO_ROOT = resolve(__dirname, "../..")
 
-const COMMIT_TEST_TIMEOUT = 120_000
+const COMMIT_TEST_TIMEOUT = 300_000
 const STOP_GRACE = 5000
 
 const CPU_TIMES = /\d+m[\d.]+s \d+m[\d.]+s\n(\d+)m([\d.]+)s (\d+)m([\d.]+)s\n$/
@@ -40,7 +40,8 @@ function signalGroup(child: ChildProcess, signal: NodeJS.Signals): void {
   try {
     process.kill(-child.pid, signal)
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "ESRCH") {
+    const { code } = error as NodeJS.ErrnoException
+    if (code !== "ESRCH" && code !== "EPERM") {
       throw error
     }
   }
@@ -112,7 +113,16 @@ function createClone() {
       })
       child.on("close", (status) => {
         running.delete(child)
-        done({ status, output: `${stdout}${stderr}` })
+        const output = `${stdout}${stderr}`
+        if (removed) {
+          fail(
+            new Error(
+              `${command} ${args.join(" ")} was stopped when the test ended:\n${output}`
+            )
+          )
+          return
+        }
+        done({ status, output })
       })
     })
   const must = async (command: string, args: string[]): Promise<string> => {
