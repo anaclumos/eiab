@@ -23,7 +23,11 @@ jobs:
           registry-url: https://registry.npmjs.org
 
       - run: bun install
-      - run: bun run test
+
+      # Checks ran in lefthook before the merge; this job only builds and
+      # publishes.
+      - name: Build eiab package
+        run: bun run build --filter=eiab
 
       - name: Publish eiab package
         run: npm publish --access public --provenance
