@@ -19,10 +19,10 @@ test.describe("Normal browser", () => {
     await expect(page.getByTestId("failed")).not.toBeVisible()
   })
 
-  test("does not redirect", async ({ page }) => {
+  test("does not redirect", async ({ page, baseURL }) => {
     await page.goto("/")
     await page.waitForTimeout(500)
-    expect(page.url()).toBe("http://localhost:3000/")
+    expect(page.url()).toBe(baseURL)
   })
 })
 
@@ -58,7 +58,7 @@ test.describe("Facebook in-app browser (Android)", () => {
 })
 
 test.describe("User agent detection edge cases", () => {
-  test("detects various in-app browsers", async ({ browser }) => {
+  test("detects various in-app browsers", async ({ browser, baseURL }) => {
     const inAppUAs = [
       "Mozilla/5.0 (iPhone) naver",
       "Mozilla/5.0 (Android) snapchat",
@@ -70,9 +70,9 @@ test.describe("User agent detection edge cases", () => {
     ]
 
     for (const ua of inAppUAs) {
-      const context = await browser.newContext({ userAgent: ua })
+      const context = await browser.newContext({ baseURL, userAgent: ua })
       const page = await context.newPage()
-      await page.goto("http://localhost:3000/")
+      await page.goto("/")
       await expect(page.getByTestId("status")).toHaveText("in-app")
       await context.close()
     }

@@ -1,7 +1,14 @@
+# Every check runs here; the repository has no CI.
+# pre-commit judges the commit's own content in seconds.
+# pre-push is the gate before code leaves the machine, and the hook the merge
+# gate reruns on the head merged onto the base tip.
+
 pre-commit:
+  parallel: true
   jobs:
-    - run: bun x ultracite fix
-      glob: 
+    - name: format
+      run: bun x ultracite fix {staged_files}
+      glob:
         - "*.js"
         - "*.jsx"
         - "*.ts"
@@ -10,3 +17,25 @@ pre-commit:
         - "*.jsonc"
         - "*.css"
       stage_fixed: true
+    - name: typecheck and lint
+      run: bun x turbo run typecheck lint
+      glob:
+        - "*.ts"
+        - "*.tsx"
+        - "*.json"
+
+pre-push:
+  parallel: true
+  jobs:
+    - name: ultracite
+      run: bun x ultracite check
+    # One turbo run builds each package once and runs the unit tests, type
+    # check, and lint in parallel; a second turbo process would rebuild
+    # packages/eiab/dist under the end-to-end server. Then the end-to-end
+    # suite serves the built package to the installed Chrome.
+    - name: build, test, typecheck, lint, e2e
+      group:
+        piped: true
+        jobs:
+          - run: bun x turbo run build test typecheck lint
+          - run: bun x playwright test

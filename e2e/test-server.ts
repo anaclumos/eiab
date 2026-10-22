@@ -25,8 +25,10 @@ const html = `<!DOCTYPE html>
 </body>
 </html>`
 
+const port = Number(process.env.PORT ?? 3000)
+
 Bun.serve({
-  port: 3000,
+  port,
   async fetch(req) {
     const url = new URL(req.url)
 
@@ -49,4 +51,4 @@ Bun.serve({
   },
 })
 
-console.log("Test server running on http://localhost:3000")
+console.log(`Test server running on http://localhost:${port}`)
