@@ -24,4 +24,4 @@ pre-push:
         piped: true
         jobs:
           - run: bun x turbo run build test typecheck lint
-          - run: bun x playwright test
+          - run: unset $(git rev-parse --local-env-vars); bun x playwright test
