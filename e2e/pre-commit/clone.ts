@@ -33,17 +33,19 @@ function cleanEnv(): NodeJS.ProcessEnv {
   return env
 }
 
-function signalGroup(child: ChildProcess, signal: NodeJS.Signals): void {
+function signalGroup(child: ChildProcess, signal: NodeJS.Signals | 0): boolean {
   if (child.pid === undefined) {
-    return
+    return false
   }
   try {
     process.kill(-child.pid, signal)
+    return true
   } catch (error) {
     const { code } = error as NodeJS.ErrnoException
     if (code !== "ESRCH" && code !== "EPERM") {
       throw error
     }
+    return false
   }
 }
 
@@ -54,8 +56,10 @@ function stop(child: ChildProcess): Promise<void> {
       done()
     }, STOP_GRACE)
     child.once("close", () => {
-      clearTimeout(kill)
-      done()
+      if (!signalGroup(child, 0)) {
+        clearTimeout(kill)
+        done()
+      }
     })
     signalGroup(child, "SIGINT")
   })
