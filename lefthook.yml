@@ -1,31 +1,16 @@
 # Every check runs here; the repository has no CI.
-# pre-commit judges the commit's own content in seconds.
 # pre-push is the gate before code leaves the machine, and the hook the merge
 # gate reruns on the head merged onto the base tip.
 
-# A hook that cannot find its lefthook binary fails the commit or push instead
-# of printing "Can't find lefthook in PATH" and passing with no check.
 assert_lefthook_installed: true
-
-pre-commit:
-  parallel: true
-  jobs:
-    - name: format, typecheck, lint on the index
-      run: script=$(git show :scripts/pre-commit.sh) && sh -c "$script"
-      stage_fixed: true
 
 pre-push:
   parallel: true
   jobs:
-    - name: ultracite
-      run: bun x ultracite check
     # One turbo run builds each package once and runs the unit tests, type
     # check, and lint in parallel; a second turbo process would rebuild
     # packages/eiab/dist under the end-to-end server. Then the end-to-end
     # suite serves the built package to the installed Chrome.
-    - name: build, test, typecheck, lint, e2e
-      group:
-        piped: true
-        jobs:
-          - run: bun x turbo run build test typecheck lint
-          - run: unset $(git rev-parse --local-env-vars); bun x playwright test
+    - name: ultracite, build, test, typecheck, lint, e2e on the pushed tree
+      run: script=$(git show HEAD:scripts/pre-push.sh) && sh -c "$script"
+      use_stdin: true
