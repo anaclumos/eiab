@@ -1,9 +1,9 @@
 import { defineConfig, devices } from "@playwright/test"
 
 // lefthook's pre-push hook runs this suite on the owner's machine, so it uses
-// the installed Google Chrome and a port no dev server is likely to hold.
-const PORT = 3917
-const BASE_URL = `http://localhost:${PORT}/`
+// the installed Google Chrome. No server listens on the base URL: each browser
+// test's context answers its own requests (e2e/test-page.ts).
+const BASE_URL = "http://localhost:3917/"
 
 export default defineConfig({
   testDir: "./e2e",
@@ -20,10 +20,4 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"], channel: "chrome" },
     },
   ],
-  webServer: {
-    command: "bun run e2e/test-server.ts",
-    url: BASE_URL,
-    env: { PORT: String(PORT) },
-    reuseExistingServer: false,
-  },
 })

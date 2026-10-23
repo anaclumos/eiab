@@ -1,4 +1,5 @@
-import { expect, test } from "@playwright/test"
+import { expect } from "@playwright/test"
+import { test } from "./test-page"
 
 const INSTAGRAM_IOS_UA =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 15_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Instagram"
