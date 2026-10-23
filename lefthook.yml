@@ -9,8 +9,8 @@ pre-push:
   jobs:
     # One turbo run builds each package once and runs the unit tests, type
     # check, and lint in parallel; a second turbo process would rebuild
-    # packages/eiab/dist under the end-to-end server. Then the end-to-end
-    # suite serves the built package to the installed Chrome.
+    # packages/eiab/dist while the end-to-end suite reads it. Then the
+    # end-to-end suite serves the built package to the installed Chrome.
     - name: ultracite, build, test, typecheck, lint, e2e on the pushed tree
       run: script=$(git show HEAD:scripts/pre-push.sh) && sh -c "$script"
       use_stdin: true
