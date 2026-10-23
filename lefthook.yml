@@ -21,8 +21,7 @@ pre-push:
       run: bun x ultracite check
     # One turbo run builds each package once and runs the unit tests, type
     # check, and lint in parallel; a second turbo process would rebuild
-    # packages/eiab/dist under the end-to-end server. Then the end-to-end
-    # suite serves the built package to the installed Chrome.
+    # packages/eiab/dist under the end-to-end server.
     - name: build, test, typecheck, lint, e2e
       group:
         piped: true
